@@ -1,0 +1,128 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "simulate",
+            "detail": "Launch PX4 SITL + Gazebo",
+            "type": "shell",
+            "command": "bash src/${input:competition}/scripts/simulate.sh ${input:sim_world}",
+            "problemMatcher": []
+        },
+        {
+            "label": "agent",
+            "detail": "Launch Micro XRCE-DDS Agent",
+            "type": "shell",
+            "command": "bash src/${input:competition}/scripts/agent.sh",
+            "problemMatcher": []
+        },
+        {
+            "label": "image bridge",
+            "detail": "Launch ros_gz_image bridge (Gazebo camera → ROS2)",
+            "type": "shell",
+            "command": "bash src/evtol-dev/scripts/image_bridge.sh",
+            "problemMatcher": []
+        },
+        {
+            "label": "simulation start",
+            "detail": "Launch simulation + DDS agent + image bridge (all at once)",
+            "dependsOn": [
+                "simulate",
+                "agent",
+                "image bridge"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "build",
+            "detail": "Build workspace packages",
+            "type": "shell",
+            "command": "bash src/${input:competition}/scripts/build.sh ${input:buildTarget}",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "mission launch",
+            "detail": "Launch a mission FSM via ros2 launch",
+            "type": "shell",
+            "command": "source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 launch ${input:missionPackage} simulation.launch.py",
+            "problemMatcher": []
+        },
+        {
+            "label": "gazebo kill",
+            "detail": "Kill all simulation processes (PX4 + Gazebo)",
+            "type": "shell",
+            "command": "rm -rfv /tmp/px4* || true && pkill -9 px4 || true && pkill -9 -f 'gz sim' || true",
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "revealProblems": "onProblem",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": false,
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "ground station",
+            "detail": "Launch Ground Station",
+            "type": "shell",
+            "command": "bash src/evtol-dev/scripts/ground_station.sh ${input:missionPackage}",
+            "problemMatcher": []
+        },
+        {
+            "label": "fechar garra",
+            "detail": "Acionar servo para fechar a garra",
+            "type": "shell",
+            "command": "bash src/evtol-dev/scripts/fechar_garra.sh",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "competition",
+            "description": "Choose competition",
+            "type": "pickString",
+            "options": [
+                "sae2026"
+            ],
+            "default": "sae2026"
+        },
+        {
+            "id": "sim_world",
+            "description": "Choose Gazebo world",
+            "type": "pickString",
+            "options": [
+                "sae1",
+                "sae2",
+                "sae3",
+                "default"
+            ],
+            "default": "sae1"
+        },
+        {
+            "id": "buildTarget",
+            "description": "Which targets to build?",
+            "type": "pickString",
+            "options": [
+                "all",
+                "deps",
+                "mission_1"
+            ],
+            "default": "all"
+        },
+        {
+            "id": "missionPackage",
+            "description": "Which mission package to launch?",
+            "type": "pickString",
+            "options": [
+                "mission_1"
+            ],
+            "default": "mission_1"
+        }
+    ]
+}

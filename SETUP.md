@@ -164,51 +164,70 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install --executor sequential
 ```
 
-### 6.4 Source the workspace
+### 6.5 Set up VSCode Tasks
+
+Copy the VSCode tasks configuration from the meta repo:
 
 ```bash
-source install/setup.bash
+cp -r ~/evtol/dev/src/evtol-dev/.vscode ~/evtol/dev/.vscode
 ```
 
-> **Tip:** Add this to `~/.bashrc` for convenience:
-> ```bash
-> echo "source ~/evtol/dev/install/setup.bash" >> ~/.bashrc
-> ```
+This provides pre-configured tasks for simulation, building, and running missions.
 
 ---
 
 ## 7. Running a Simulation
 
-Running a simulation requires **3 terminals**. All commands assume you are in `~/evtol/dev`.
+### Option A: VSCode Tasks (recommended)
 
-### Terminal 1: PX4 SITL + Gazebo
+1. Open the workspace in VSCode: `code ~/evtol/dev`
+2. Press `Ctrl+Shift+P` → **"Tasks: Run Task"**
+3. Select **"simulation start"** → choose a world (e.g., `sae1`)
+   - This launches PX4 + Gazebo, DDS Agent, and image bridge all at once
+4. Press `Ctrl+Shift+P` → **"Tasks: Run Task"**
+5. Select **"mission launch"** → choose a mission (e.g., `mission_1`)
+6. When done, run the **"gazebo kill"** task to clean up
+
+### Option B: Terminal (3 terminals)
+
+All commands assume you are in `~/evtol/dev`.
+
+**Terminal 1 — PX4 SITL + Gazebo:**
 
 ```bash
 cd ~/evtol/dev
-source install/setup.bash
-bash src/sae2026/scripts/simulate.sh <world_name>
+bash src/sae2026/scripts/simulate.sh sae1
 ```
 
-This launches the PX4 flight controller in Software-In-The-Loop mode with the Gazebo 3D simulator.
-
-### Terminal 2: DDS Agent
+**Terminal 2 — DDS Agent:**
 
 ```bash
 cd ~/evtol/dev
 bash src/sae2026/scripts/agent.sh
 ```
 
-This bridges ROS2 topics with PX4's internal messaging (uORB).
-
-### Terminal 3: Your ROS2 Node
+**Terminal 3 — Mission:**
 
 ```bash
 cd ~/evtol/dev
 source install/setup.bash
-ros2 run <package_name> <node_name>
+
+# Recommended: launch (loads YAML params + system_health)
+ros2 launch mission_1 simulation.launch.py
+
+# Alternative: run (direct, no YAML)
+ros2 run mission_1 mission_1
 ```
 
-### Visual Summary
+### `ros2 launch` vs `ros2 run`
+
+| | `ros2 run` | `ros2 launch` |
+|---|---|---|
+| Loads YAML config | ❌ | ✅ |
+| Starts system_health | ❌ | ✅ |
+| Best for | Quick tests | Full simulation |
+
+### Architecture
 
 ```
 ┌──────────────┐     ┌──────────────────┐     ┌──────────────┐
@@ -247,8 +266,9 @@ Ensure you ran `sudo make install` and `sudo ldconfig /usr/local/lib/` after bui
 Verify model paths:
 
 ```bash
-echo $GAZEBO_MODEL_PATH
+echo $GZ_SIM_RESOURCE_PATH
 # Should include: ~/PX4-Autopilot/Tools/simulation/gz/models
 ```
 
 The `simulate.sh` script sets these automatically.
+
