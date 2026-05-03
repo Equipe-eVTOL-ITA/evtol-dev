@@ -14,5 +14,5 @@ if [ -f "$WORKSPACE_DIR/install/setup.bash" ]; then
     source "$WORKSPACE_DIR/install/setup.bash"
 fi
 
-echo "Starting ros_gz_image bridge (vertical_camera → ROS2)"
-ros2 run ros_gz_image image_bridge /vertical_camera --ros-args -p transport:=compressed
+echo "Starting ros_gz_image bridge (vertical_camera & horizontal_camera → ROS2)"
+ros2 run ros_gz_image image_bridge /vertical_camera /horizontal_camera --ros-args -p transport:=compressed
