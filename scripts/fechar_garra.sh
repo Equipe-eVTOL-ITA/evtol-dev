@@ -4,7 +4,7 @@
 # ==========================================================
 set -e
 
-SERVO_SCRIPT="$HOME/jetson-gpio/samples/servoControl.py"
+SERVO_SCRIPT="$HOME/jetson-gpio/samples/simple_pwm.py"
 
 if [ ! -f "$SERVO_SCRIPT" ]; then
     echo "Error: Servo control script not found at $SERVO_SCRIPT"
