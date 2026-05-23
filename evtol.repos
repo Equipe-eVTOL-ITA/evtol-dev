@@ -1,0 +1,64 @@
+# Workspace manifest for the eVTOL ITA ROS 2 workspace.
+#
+# Usage (from the workspace root, e.g. ~/evtol/dev):
+#   vcs import src < src/evtol-dev/evtol.repos
+#
+# Every entry MUST pin to a tag (or commit hash), never a branch — pinning to
+# a branch reintroduces the "whatever is checked out right now" problem this
+# manifest exists to solve. See ARCHITECTURE.md ("Versioning policy").
+#
+# Non-ROS prerequisites (PX4-Autopilot, Micro-XRCE-DDS-Agent, PX4-gazebo-models)
+# are NOT listed here — they live outside the colcon workspace. Their pinned
+# versions are documented in SETUP.md.
+
+repositories:
+
+  # ---------- Layer 0: shared message/service interfaces ----------
+  custom_msgs:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/custom_msgs.git
+    version: v0.1.0
+
+  # ---------- Layer 1: PX4 hardware abstraction ----------
+  drone_lib:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
+    version: v0.1.0
+
+  # ---------- Layer 2: perception ----------
+  camera_publisher:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/camera_publisher.git
+    version: v0.1.0
+  cv_nodes:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
+    version: v0.1.1   # includes Detector class + jetson-side fixes past v0.1.0/main
+
+  # ---------- Layer 4: behavior ----------
+  fsm:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/fsm.git
+    version: v0.1.0
+  stdstates:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
+    version: v0.1.0
+
+  # ---------- Cross-cutting ----------
+  telemetry_handler:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/telemetry_handler.git
+    version: v0.1.0
+
+  # ---------- Layer 5: competition ----------
+  sae2026:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/sae2026.git
+    version: v0.1.0   # tagged from the jetson deployment branch
+
+  # ---------- External ROS 2 dependency ----------
+  px4_msgs:
+    type: git
+    url: https://github.com/PX4/px4_msgs.git
+    version: release/1.15   # matches PX4-Autopilot v1.15.4 pinned in SETUP.md
