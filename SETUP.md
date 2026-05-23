@@ -90,23 +90,26 @@ make px4_sitl
 
 ### (Optional) Custom Gazebo Models
 
-If the team uses custom Gazebo models:
+If the team uses custom Gazebo models, install the team fork pinned to a known-good commit:
 
 ```bash
 cd ~/PX4-Autopilot/Tools/simulation/gz
 git checkout main
 git remote remove origin
 git remote add origin https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models.git
-git pull origin main --rebase
+git fetch origin
+git checkout 9e510f3   # pinned commit — bump intentionally, not by drift
 ```
 
 ---
 
 ## 5. Install Micro-XRCE-DDS-Agent
 
+Pin to **v2.4.3** — the latest 2.x release compatible with PX4 v1.15.4:
+
 ```bash
 cd ~
-git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+git clone --branch v2.4.3 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
 cd Micro-XRCE-DDS-Agent
 mkdir build && cd build
 cmake ..
@@ -123,48 +126,25 @@ MicroXRCEAgent --help
 
 ---
 
-## 6. Set Up the Workspace
+## 6. Set Up the Workspace (one command)
 
-### 6.1 Create the workspace directory
-
-```bash
-mkdir -p ~/evtol/dev/src
-cd ~/evtol/dev/src
-```
-
-### 6.2 Clone all repositories
+After completing sections 1–5, bootstrap the entire workspace with two commands:
 
 ```bash
-# Meta repo (docs & templates)
-git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git
-
-# Layer 1: Foundations
-git clone https://github.com/PX4/px4_msgs.git -b release/1.15
-git clone https://github.com/Auterion/px4-ros2-interface-lib.git -b 1.3.0 px4_ros2_interface
-git clone https://github.com/Equipe-eVTOL-ITA/custom_msgs.git
-git clone https://github.com/Equipe-eVTOL-ITA/fsm.git
-
-# Layer 2: Drone Abstraction
-git clone https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-
-# Layer 3: Reusable Components
-git clone https://github.com/Equipe-eVTOL-ITA/stdstates.git
-git clone https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-git clone https://github.com/Equipe-eVTOL-ITA/camera_publisher.git
-
-# Layer 4: Competitions
-git clone https://github.com/Equipe-eVTOL-ITA/sae2026.git
+mkdir -p ~/evtol/dev && cd ~/evtol/dev
+git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git src/evtol-dev
+./src/evtol-dev/setup.sh
 ```
 
-### 6.3 Build everything
+`setup.sh` does the following:
 
-```bash
-cd ~/evtol/dev
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install --executor sequential
-```
+1. Imports every team repo at the pinned version from [evtol.repos](evtol.repos) (via `vcs import`).
+2. Runs `rosdep install` for system deps.
+3. Builds the workspace with `colcon build --symlink-install --executor sequential`.
 
-### 6.5 Set up VSCode Tasks
+The pinned versions live in `evtol.repos`; the bootstrap is the same on every machine.
+
+### 6.1 Set up VSCode Tasks
 
 Copy the VSCode tasks configuration from the meta repo:
 
@@ -173,6 +153,12 @@ cp -r ~/evtol/dev/src/evtol-dev/.vscode ~/evtol/dev/.vscode
 ```
 
 This provides pre-configured tasks for simulation, building, and running missions.
+
+### 6.2 (Need a specific repo at a non-pinned version?)
+
+To override a pin for local work, just `cd src/<repo>` and `git checkout` the branch or commit you want. The next `vcs import` will warn if local state diverges, but won't overwrite by default.
+
+To add a *new* repo to the workspace permanently, edit [evtol.repos](evtol.repos) and re-run `setup.sh`.
 
 ---
 
