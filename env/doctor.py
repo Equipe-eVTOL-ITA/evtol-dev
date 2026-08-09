@@ -27,7 +27,13 @@ except ImportError:
     )
 
 ENV_DIR = Path(__file__).resolve().parent
-WS_ROOT = ENV_DIR.parent
+_REPO_ROOT = ENV_DIR.parent
+
+# Normalmente o evtol-dev E a raiz do workspace. No layout antigo ele fica em
+# <ws>/src/evtol-dev/. O sinal e o diretorio pai se chamar `src` -- e nao a
+# existencia de `src/` aqui dentro, que numa raiz recem-clonada ainda nao
+# existe (e gitignorado e criado pelo vcs import).
+WS_ROOT = _REPO_ROOT.parent.parent if _REPO_ROOT.parent.name == "src" else _REPO_ROOT
 
 # --------------------------------------------------------------------------- #
 # Saida
@@ -353,6 +359,41 @@ def check_commands(spec: dict, rep: Report) -> None:
             rep.ok(name, match.group(1))
 
 
+def check_cv_api(spec: dict, rep: Report) -> None:
+    """Roda o contrato de API do OpenCV, se o perfil pedir.
+
+    Pinar a versao resolve a maior parte do problema, mas nao tudo: os perfis
+    rodam em Python 3.10 e 3.12, e na Jetson pode ser necessario o build com
+    CUDA do JetPack. O contrato e a rede final -- ele confere que os simbolos
+    que o NOSSO codigo chama existem, mesmo quando as versoes divergem por
+    motivo legitimo.
+    """
+    if not spec or not spec.get("check_opencv_api"):
+        return
+    section("Contrato de API do OpenCV")
+
+    script = ENV_DIR / "cv_api_contract.py"
+    if not script.exists():
+        rep.warn("cv_api_contract.py", f"nao encontrado em {script}")
+        return
+
+    src = WS_ROOT / "src"
+    if not src.is_dir():
+        rep.warn("codigo-fonte", f"{src} nao existe — pulando (normal antes do primeiro import)")
+        return
+
+    rc, out = run([sys.executable, str(script), "--src", str(src)])
+    first = out.splitlines()[0] if out else ""
+    if rc == 0:
+        rep.ok("simbolos do cv2 usados pelo codigo", first)
+    else:
+        rep.fail(
+            "simbolos do cv2 usados pelo codigo",
+            out,
+            fix=f"python3 {script} --src {src}   (detalhes acima)",
+        )
+
+
 def check_git_repos(spec: dict, rep: Report) -> None:
     if not spec:
         return
@@ -466,6 +507,7 @@ def main() -> int:
     check_pip(spec.get("pip"), rep)
     check_commands(spec.get("commands"), rep)
     check_git_repos(spec.get("git_repos"), rep)
+    check_cv_api(spec.get("pip"), rep)
 
     print()
     if rep.failures:

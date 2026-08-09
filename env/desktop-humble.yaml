@@ -93,13 +93,16 @@ apt:
 # -----------------------------------------------------------------------------
 # Pacotes pip
 # -----------------------------------------------------------------------------
-# NOTA: os pins de OpenCV e numpy são definidos no passo seguinte, junto com o
-# contract test de API do cv2.
-#
 # O valor esperado aceita duas formas:
-#   glob        "4.10.*"   — casamento de texto
+#   glob        "4.11.*"   — casamento de texto
 #   restrição   "<80"      — comparação numérica de versão
 pip:
+  # Roda env/cv_api_contract.py: confere que os símbolos do cv2 que o NOSSO
+  # código chama existem de fato. É a rede de segurança para quando as versões
+  # divergirem por motivo legítimo entre perfis (Python 3.10 vs 3.12, OpenCV
+  # com CUDA do JetPack na Jetson).
+  check_opencv_api: true
+
   required:
     # ---------------------------------------------------------------------
     # setuptools: TEM que ser < 80.
@@ -125,6 +128,53 @@ pip:
     # `setuptools==59.6.0`, que é a versão de sistema do 22.04 e não funciona
     # no Python 3.12 do perfil rpi-jazzy.
     setuptools: "<80"
+
+    # ---------------------------------------------------------------------
+    # numpy: TEM que ser < 2.
+    #
+    # O `cv_bridge` do ROS 2 Humble é uma extensão Boost.Python compilada
+    # contra a ABI do numpy 1.x. Com numpy 2 instalado, `imgmsg_to_cv2` — a
+    # PRIMEIRA coisa que todo nó de visão faz com uma imagem recebida — falha:
+    #
+    #     SystemError: <Boost.Python.function object ...> returned a result
+    #     with an exception set
+    #
+    # Ou seja: com numpy 2, TODOS os detectores estão mortos, e a mensagem de
+    # erro não menciona numpy em lugar nenhum.
+    #
+    # Verificado nesta máquina (2026-08-09), mesmo cv2, só trocando o numpy:
+    #     numpy 1.26.4 -> imgmsg_to_cv2 OK
+    #     numpy 2.2.6  -> SystemError
+    #
+    # Vale para os dois distros: o Ubuntu 24.04 (Jazzy) também traz numpy
+    # 1.26.4 como versão de sistema.
+    numpy: ">=1.24,<2"
+
+    # ---------------------------------------------------------------------
+    # opencv-python: 4.11.0.86.
+    #
+    # O TETO é imposto pelo numpy: a partir do 4.12 o pacote EXIGE numpy >= 2,
+    # que é justamente o que quebra o cv_bridge acima. As duas coisas são
+    # mutuamente exclusivas. Medido em venvs limpos:
+    #
+    #     4.10.0.84 + numpy<2 -> OK
+    #     4.11.0.86 + numpy<2 -> OK      <- o mais novo que serve
+    #     4.12.0.88 + numpy<2 -> ResolutionImpossible
+    #     4.13.0.92 + numpy<2 -> ResolutionImpossible
+    #
+    # (Esta máquina está hoje com 4.13.0.92 + numpy 2.2.6 — a combinação
+    # impossível. É a causa do cv_bridge quebrado aqui.)
+    #
+    # O PISO é a API do ArUco, que mudou de forma incompatível no 4.7
+    # (ArucoDetector). Nosso código usa a API nova.
+    #
+    # A wheel é abi3 (tag cp37), então a MESMA versão serve ao Python 3.10 do
+    # Humble e ao 3.12 do Jazzy — que é o que permite máquina de dev e drone
+    # rodarem exatamente o mesmo OpenCV.
+    #
+    # Validado no 4.11.0.86: detecção de marcador ArUco ponta a ponta e
+    # cv_bridge.imgmsg_to_cv2 com numpy 1.26.4.
+    opencv-python: "4.11.0.86"
 
   forbidden:
     opencv-contrib-python: >-
