@@ -1,0 +1,457 @@
+#!/usr/bin/env python3
+"""Verifica a máquina atual contra um perfil de ambiente do eVTOL ITA.
+
+Um `.repos` pina código. Este script pina o resto: distro do ROS, versão do
+Gazebo, variante do bridge, PX4, apt e pip. É o que impede que uma diferença
+de ambiente vire um bug silencioso de horas.
+
+Uso normal via ./doctor.sh na raiz do workspace.
+"""
+
+from __future__ import annotations
+
+import argparse
+import fnmatch
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    sys.exit(
+        "ERRO: PyYAML nao encontrado.\n"
+        "      Instale com: sudo apt install python3-yaml"
+    )
+
+ENV_DIR = Path(__file__).resolve().parent
+WS_ROOT = ENV_DIR.parent
+
+# --------------------------------------------------------------------------- #
+# Saida
+# --------------------------------------------------------------------------- #
+
+_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+
+
+def _c(code: str, text: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if _COLOR else text
+
+
+GREEN, RED, YELLOW, BOLD, DIM = "32", "31", "33", "1", "2"
+
+
+class Report:
+    """Acumula resultados e decide o codigo de saida."""
+
+    def __init__(self) -> None:
+        self.failures: list[tuple[str, str, str]] = []  # (item, detalhe, fix)
+        self.warnings: list[tuple[str, str]] = []
+        self.passed = 0
+
+    def ok(self, item: str, detail: str = "") -> None:
+        self.passed += 1
+        suffix = f"  {_c(DIM, detail)}" if detail else ""
+        print(f"  {_c(GREEN, 'OK  ')} {item}{suffix}")
+
+    def fail(self, item: str, detail: str, fix: str = "") -> None:
+        self.failures.append((item, detail, fix))
+        print(f"  {_c(RED, 'FALHA')} {item}")
+        for line in detail.strip().splitlines():
+            print(f"        {line.strip()}")
+        if fix:
+            print(f"        {_c(BOLD, 'corrija:')} {fix}")
+
+    def warn(self, item: str, detail: str) -> None:
+        self.warnings.append((item, detail))
+        print(f"  {_c(YELLOW, 'AVISO')} {item}")
+        for line in detail.strip().splitlines():
+            print(f"        {line.strip()}")
+
+
+def section(title: str) -> None:
+    print(f"\n{_c(BOLD, title)}")
+
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+
+
+def run(cmd: list[str] | str, cwd: str | Path | None = None) -> tuple[int, str]:
+    """Executa um comando e devolve (returncode, stdout+stderr strip)."""
+    try:
+        proc = subprocess.run(
+            cmd,
+            shell=isinstance(cmd, str),
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 1, str(exc)
+    return proc.returncode, (proc.stdout + proc.stderr).strip()
+
+
+def apt_version(pkg: str) -> str | None:
+    """Versao instalada do pacote, ou None se nao estiver instalado."""
+    rc, out = run(["dpkg-query", "-W", "-f=${Status}\t${Version}", pkg])
+    if rc != 0 or "\t" not in out:
+        return None
+    status, version = out.split("\t", 1)
+    if "install ok installed" not in status:
+        return None
+    return version.strip()
+
+
+def pip_version(pkg: str) -> str | None:
+    from importlib import metadata
+
+    try:
+        return metadata.version(pkg)
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def matches(actual: str, expected: str) -> bool:
+    return expected in ("*", "", None) or fnmatch.fnmatch(actual, expected)
+
+
+# --------------------------------------------------------------------------- #
+# Checks
+# --------------------------------------------------------------------------- #
+
+
+def check_os(spec: dict, rep: Report) -> None:
+    if not spec:
+        return
+    section("Sistema operacional")
+
+    if (want := spec.get("distributor_id")) or (want_rel := spec.get("release")):
+        rc, distro = run(["lsb_release", "-is"])
+        rc2, release = run(["lsb_release", "-rs"])
+        if rc != 0 or rc2 != 0:
+            rep.warn("lsb_release", "nao disponivel; pulando checagem de SO")
+        else:
+            want_rel = spec.get("release")
+            if want and distro != want:
+                rep.fail("distribuicao", f"esperado {want}, encontrado {distro}")
+            elif want_rel and release != want_rel:
+                rep.fail(
+                    "versao do Ubuntu",
+                    f"esperado {want_rel}, encontrado {release}\n"
+                    "Perfis do eVTOL sao amarrados a versao do Ubuntu porque o "
+                    "ROS e o Gazebo sao distribuidos por ela.",
+                    fix=f"use o perfil correspondente ao Ubuntu {release} "
+                    "(./doctor.sh --list)",
+                )
+            else:
+                rep.ok("SO", f"{distro} {release}")
+
+    if want_py := spec.get("python"):
+        actual = f"{sys.version_info.major}.{sys.version_info.minor}"
+        if actual != want_py:
+            rep.fail(
+                "Python",
+                f"esperado {want_py}, encontrado {actual}\n"
+                "Pacotes pip compilados nao sao intercambiaveis entre versoes "
+                "de Python.",
+            )
+        else:
+            rep.ok("Python", actual)
+
+
+def check_ros(spec: dict, rep: Report) -> None:
+    if not (want := (spec or {}).get("distro")):
+        return
+    section("ROS 2")
+
+    setup = Path(f"/opt/ros/{want}/setup.bash")
+    if not setup.exists():
+        rep.fail(
+            f"ROS 2 {want}",
+            f"nao instalado ({setup} nao existe)",
+            fix=f"sudo apt install ros-{want}-desktop  (veja docs/SETUP.md)",
+        )
+        return
+    rep.ok(f"ROS 2 {want} instalado", str(setup))
+
+    active = os.environ.get("ROS_DISTRO")
+    if active is None:
+        rep.warn(
+            "ROS_DISTRO",
+            "nao definido no shell atual — voce provavelmente esqueceu de rodar\n"
+            f"  source /opt/ros/{want}/setup.bash",
+        )
+    elif active != want:
+        rep.fail(
+            "ROS_DISTRO",
+            f"o shell atual esta com '{active}', mas este perfil exige '{want}'.\n"
+            "Compilar ou executar com o distro errado gera erros que NAO apontam\n"
+            "para a causa real. Este e o modo de falha que o perfil existe para pegar.",
+            fix=f"abra um shell limpo e rode: source /opt/ros/{want}/setup.bash",
+        )
+    else:
+        rep.ok("ROS_DISTRO ativo", active)
+
+
+def check_apt(spec: dict, rep: Report) -> None:
+    if not spec:
+        return
+    required = spec.get("required") or {}
+    forbidden = spec.get("forbidden") or {}
+
+    if required:
+        section("Pacotes apt obrigatorios")
+        for pkg, want in sorted(required.items()):
+            want = "*" if want is None else str(want)
+            actual = apt_version(pkg)
+            if actual is None:
+                rep.fail(pkg, "nao instalado", fix=f"sudo apt install {pkg}")
+            elif not matches(actual, want):
+                rep.fail(
+                    pkg,
+                    f"versao {actual} nao casa com o esperado '{want}'",
+                    fix=f"sudo apt install --allow-downgrades {pkg}={want}",
+                )
+            else:
+                rep.ok(pkg, actual)
+
+    if forbidden:
+        section("Pacotes apt proibidos (conflitantes)")
+        for pkg, reason in sorted(forbidden.items()):
+            actual = apt_version(pkg)
+            if actual is None:
+                rep.ok(f"{pkg} ausente")
+            else:
+                rep.fail(
+                    f"{pkg} INSTALADO ({actual})",
+                    str(reason),
+                    fix=f"sudo apt remove {pkg}",
+                )
+
+
+def check_pip(spec: dict, rep: Report) -> None:
+    if not spec:
+        return
+    required = spec.get("required") or {}
+    forbidden = spec.get("forbidden") or {}
+
+    if required:
+        section("Pacotes pip obrigatorios")
+        for pkg, want in sorted(required.items()):
+            want = "*" if want is None else str(want)
+            actual = pip_version(pkg)
+            if actual is None:
+                rep.fail(pkg, "nao instalado", fix=f"pip install '{pkg}=={want}'")
+            elif not matches(actual, want):
+                rep.fail(
+                    pkg,
+                    f"versao {actual} nao casa com o esperado '{want}'",
+                    fix=f"pip install --force-reinstall '{pkg}=={want}'",
+                )
+            else:
+                rep.ok(pkg, actual)
+
+    if forbidden:
+        section("Pacotes pip proibidos (conflitantes)")
+        for pkg, reason in sorted(forbidden.items()):
+            actual = pip_version(pkg)
+            if actual is None:
+                rep.ok(f"{pkg} ausente")
+            else:
+                rep.fail(
+                    f"{pkg} INSTALADO ({actual})",
+                    str(reason),
+                    fix=f"pip uninstall -y {pkg}",
+                )
+
+
+def check_commands(spec: dict, rep: Report) -> None:
+    if not spec:
+        return
+    section("Binarios no PATH")
+    from shutil import which
+
+    for name, cfg in sorted(spec.items()):
+        cfg = cfg or {}
+        path = which(name)
+        if path is None:
+            rep.fail(name, "nao encontrado no PATH", fix=cfg.get("fix", ""))
+            continue
+
+        if (want_path := cfg.get("expect_path")) and path != want_path:
+            rep.warn(
+                name,
+                f"encontrado em {path}, esperado em {want_path} "
+                "(pode ser uma segunda instalacao sombreando a correta)",
+            )
+            continue
+
+        want_version = cfg.get("expect_version")
+        if not want_version:
+            rep.ok(name, path)
+            continue
+
+        rc, out = run(cfg.get("version_cmd", f"{name} --version"))
+        match = re.search(cfg.get("version_regex", r"(\d+\.\d+\.\d+)"), out)
+        if not match:
+            rep.warn(name, f"nao consegui extrair a versao de: {out.splitlines()[:1]}")
+        elif not matches(match.group(1), want_version):
+            rep.fail(
+                name,
+                f"versao {match.group(1)} nao casa com o esperado '{want_version}'",
+                fix=cfg.get("fix", ""),
+            )
+        else:
+            rep.ok(name, match.group(1))
+
+
+def check_git_repos(spec: dict, rep: Report) -> None:
+    if not spec:
+        return
+    section("Repositorios externos ao workspace")
+    for raw_path, cfg in sorted(spec.items()):
+        cfg = cfg or {}
+        path = Path(os.path.expanduser(raw_path))
+        if not (path / ".git").exists():
+            rep.fail(
+                raw_path,
+                f"nao e um repositorio git ({path} ausente ou sem .git)",
+                fix=cfg.get("fix", "veja docs/SETUP.md"),
+            )
+            continue
+
+        if want := cfg.get("expect_describe"):
+            rc, out = run(["git", "describe", "--tags", "--always"], cwd=path)
+            actual = out.splitlines()[0] if rc == 0 and out else "?"
+            if not matches(actual, want):
+                rep.fail(
+                    raw_path,
+                    f"em '{actual}', esperado '{want}'",
+                    fix=cfg.get("fix", ""),
+                )
+            else:
+                rep.ok(raw_path, actual)
+
+        if want := cfg.get("expect_commit"):
+            rc, out = run(["git", "rev-parse", "--short", "HEAD"], cwd=path)
+            actual = out.splitlines()[0] if rc == 0 and out else "?"
+            # Aceita prefixos: hashes curtos tem comprimentos diferentes por repo.
+            if not (actual.startswith(want) or want.startswith(actual)):
+                rep.fail(
+                    raw_path,
+                    f"no commit {actual}, esperado {want}",
+                    fix=cfg.get("fix", ""),
+                )
+            else:
+                rep.ok(raw_path, actual)
+
+
+# --------------------------------------------------------------------------- #
+# Selecao de perfil
+# --------------------------------------------------------------------------- #
+
+
+def available_profiles() -> list[str]:
+    return sorted(p.stem for p in ENV_DIR.glob("*.yaml"))
+
+
+def resolve_profile(explicit: str | None) -> str:
+    if explicit:
+        return explicit
+
+    marker = WS_ROOT / ".evtol-profile"
+    if marker.exists():
+        if name := marker.read_text().strip():
+            return name
+
+    sys.exit(
+        "ERRO: nenhum perfil selecionado.\n\n"
+        f"  Perfis disponiveis: {', '.join(available_profiles()) or '(nenhum)'}\n\n"
+        "  Escolha um explicitamente:\n"
+        "      ./doctor.sh --profile desktop-humble\n\n"
+        "  Ou fixe o perfil desta maquina de uma vez por todas:\n"
+        "      echo desktop-humble > .evtol-profile\n"
+    )
+
+
+# --------------------------------------------------------------------------- #
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Verifica a maquina contra um perfil de ambiente do eVTOL ITA."
+    )
+    parser.add_argument("--profile", "-p", help="nome do perfil (ex.: desktop-humble)")
+    parser.add_argument(
+        "--list", "-l", action="store_true", help="lista os perfis disponiveis"
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        print("Perfis disponiveis:")
+        for name in available_profiles():
+            data = yaml.safe_load((ENV_DIR / f"{name}.yaml").read_text()) or {}
+            print(f"  {name:<20} {data.get('description', '')}")
+        return 0
+
+    name = resolve_profile(args.profile)
+    path = ENV_DIR / f"{name}.yaml"
+    if not path.exists():
+        sys.exit(
+            f"ERRO: perfil '{name}' nao existe.\n"
+            f"      Disponiveis: {', '.join(available_profiles()) or '(nenhum)'}"
+        )
+
+    spec = yaml.safe_load(path.read_text()) or {}
+
+    print(_c(BOLD, f"eVTOL ITA — verificacao de ambiente"))
+    print(f"perfil:    {_c(BOLD, name)}")
+    if desc := spec.get("description"):
+        print(f"           {_c(DIM, desc)}")
+    print(f"spec:      {path}")
+    print(f"workspace: {WS_ROOT}")
+
+    rep = Report()
+    check_os(spec.get("os"), rep)
+    check_ros(spec.get("ros"), rep)
+    check_apt(spec.get("apt"), rep)
+    check_pip(spec.get("pip"), rep)
+    check_commands(spec.get("commands"), rep)
+    check_git_repos(spec.get("git_repos"), rep)
+
+    print()
+    if rep.failures:
+        print(
+            _c(
+                RED,
+                f"FALHOU: {len(rep.failures)} problema(s), "
+                f"{rep.passed} checagem(ns) ok, {len(rep.warnings)} aviso(s).",
+            )
+        )
+        print("\nProblemas encontrados:")
+        for item, _, fix in rep.failures:
+            print(f"  - {item}" + (f"\n      -> {fix}" if fix else ""))
+        print(
+            "\nCorrija os itens acima antes de compilar ou voar. Diferenca de\n"
+            "ambiente e a classe de bug mais cara do time justamente porque nao\n"
+            "aparece como erro — aparece como 'nao funciona e ninguem sabe por que'."
+        )
+        return 1
+
+    print(
+        _c(
+            GREEN,
+            f"OK: {rep.passed} checagem(ns) passaram, {len(rep.warnings)} aviso(s).",
+        )
+    )
+    print(f"Ambiente confere com o perfil '{name}'.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
