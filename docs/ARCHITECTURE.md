@@ -10,18 +10,32 @@ This document explains the project structure, how dependencies work, and how to 
 
 The workspace follows a **flat repos + colcon** pattern: each GitHub repository is cloned side-by-side in the `src/` directory, and ROS2's build system (`colcon`) automatically resolves dependencies between them.
 
+O repositório `evtol-dev` **é** a raiz do workspace: ele não fica dentro de
+`src/`, ele *é* `~/evtol/dev`. O `src/` é preenchido pelo `vcs import` e é
+ignorado pelo git da raiz (cada repo lá dentro tem o seu próprio). Assim o
+`.vscode/`, os `scripts/` e os perfis ficam versionados no lugar em que são
+usados, sem cópia — cópia deriva, e já derivou.
+
 ```
 ~/
 ├── PX4-Autopilot/                      ← PX4 firmware + Gazebo (external)
 ├── Micro-XRCE-DDS-Agent/              ← DDS agent (external)
+├── PX4-gazebo-models/                 ← modelos/mundos da equipe (external)
 │
 └── evtol/
-    └── dev/                            ← colcon workspace root
-        ├── src/                        ← all repos cloned here (flat)
-        │   ├── evtol-dev/              ← meta repo — docs & templates (NOT a ROS2 package)
-        │   │   ├── ARCHITECTURE.md
-        │   │   ├── SETUP.md
-        │   │   └── templates/scripts/
+    └── dev/                            ← raiz do workspace = repo evtol-dev
+        ├── evtol.repos                 ← manifesto de CÓDIGO (repos + tags)
+        ├── env/                        ← manifesto de AMBIENTE (um por plataforma)
+        │   └── desktop-humble.yaml
+        ├── doctor.sh                   ← verifica a máquina contra o perfil
+        ├── setup.sh                    ← bootstrap do workspace
+        ├── .evtol-profile              ← perfil desta máquina (NÃO versionado)
+        ├── .vscode/tasks.json          ← tasks, já onde o VSCode lê
+        ├── scripts/                    ← scripts genéricos do workspace
+        ├── docs/                       ← ARCHITECTURE.md, SETUP.md, ...
+        ├── templates/scripts/          ← modelos p/ repos de competição
+        │
+        ├── src/                        ← via `vcs import`; gitignorado na raiz
         │   ├── px4_msgs/               ← 3rd party — PX4 message definitions
         │   ├── px4_ros2_interface/     ← 3rd party — PX4-ROS2 interface library
         │   ├── custom_msgs/            ← shared message/service definitions
@@ -239,7 +253,7 @@ Each competition repository contains a `scripts/` directory with simulation scri
 | `agent.sh` | Starts `MicroXRCEAgent udp4 -p 8888` for simulation | `./scripts/agent.sh` |
 | `build.sh <target>` | Runs `colcon build` with preset targets (`all`, `deps`, `mission_1`, etc.) | `./scripts/build.sh all` |
 
-> **Template scripts** are available in `src/evtol-dev/templates/scripts/` for bootstrapping new competitions.
+> **Template scripts** are available in `templates/scripts/` for bootstrapping new competitions.
 
 ---
 

@@ -3,9 +3,8 @@
 # setup.sh — bootstrap do workspace eVTOL ITA.
 # =============================================================================
 #
-#   mkdir -p ~/evtol/dev && cd ~/evtol/dev
-#   git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git src/evtol-dev
-#   ./src/evtol-dev/setup.sh --profile desktop-humble
+#   git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git ~/evtol/dev
+#   cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 #
 # Faz, nesta ordem:
 #   1. verifica o ambiente contra o perfil (doctor.sh) — PORTÃO
@@ -19,8 +18,8 @@
 #
 # Pré-requisitos que NÃO são instalados por este script (vivem fora do
 # workspace colcon): PX4-Autopilot, Micro-XRCE-DDS-Agent e, opcionalmente,
-# PX4-gazebo-models. Veja SETUP.md seções 4-5. As versões deles são pinadas
-# em env/<perfil>.yaml e conferidas pelo doctor.
+# PX4-gazebo-models. Veja docs/SETUP.md seções 4-5. As versões deles são
+# pinadas em env/<perfil>.yaml e conferidas pelo doctor.
 # =============================================================================
 
 set -euo pipefail
@@ -51,15 +50,19 @@ done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# O repo evtol-dev pode estar em src/evtol-dev/ (layout atual) ou ser ele
-# próprio a raiz do workspace. Detecta os dois para que a reorganização da
-# estrutura não quebre este script.
-if [[ -d "$script_dir/src" && -f "$script_dir/evtol.repos" ]]; then
-    ws_root="$script_dir"                       # evtol-dev É a raiz
-    meta_dir="$script_dir"
-else
+# Normalmente o evtol-dev É a raiz do workspace. O layout antigo (clonado em
+# src/evtol-dev/) continua sendo detectado para não quebrar máquinas que ainda
+# não migraram (veja docs/MIGRATION.md).
+#
+# O sinal é o diretório PAI se chamar `src` — e não a existência de `src/`
+# aqui dentro: num clone recém-feito da raiz o `src/` ainda não existe (é
+# gitignorado e criado pelo vcs import), o que faria a detecção pelo `src/`
+# classificar a raiz como layout antigo e subir dois níveis demais.
+meta_dir="$script_dir"
+if [[ "$(basename "$(dirname "$script_dir")")" == "src" ]]; then
     ws_root="$(cd "$script_dir/../.." && pwd)"  # evtol-dev está em src/
-    meta_dir="$script_dir"
+else
+    ws_root="$script_dir"                       # evtol-dev É a raiz
 fi
 cd "$ws_root"
 
@@ -122,7 +125,7 @@ if [[ -z "${ROS_DISTRO:-}" ]]; then
         source "/opt/ros/$ros_distro/setup.bash"
     else
         echo "ERRO: ROS 2 $ros_distro não encontrado em /opt/ros/$ros_distro." >&2
-        echo "      O perfil '$profile' exige essa distro. Veja SETUP.md seção 2." >&2
+        echo "      O perfil '$profile' exige essa distro. Veja docs/SETUP.md seção 2." >&2
         exit 1
     fi
 fi
@@ -147,7 +150,7 @@ fi
 # ---------------------------------------------------------------------------
 for tool in vcs colcon rosdep; do
     command -v "$tool" >/dev/null 2>&1 || {
-        echo "ERRO: '$tool' não está no PATH. Veja SETUP.md seções 1-2." >&2
+        echo "ERRO: '$tool' não está no PATH. Veja docs/SETUP.md seções 1-2." >&2
         exit 1
     }
 done
@@ -173,7 +176,7 @@ fi
 # ---------------------------------------------------------------------------
 # 4. Build
 # ---------------------------------------------------------------------------
-# --executor sequential evita picos de RAM (veja SETUP.md, seção de swap).
+# --executor sequential evita picos de RAM (veja docs/SETUP.md, seção de swap).
 echo "==> Compilando (colcon build --symlink-install --executor sequential)"
 colcon build --symlink-install --executor sequential
 
@@ -186,7 +189,10 @@ cat <<EOF
 Pronto. Perfil '$profile' registrado em $ws_root/.evtol-profile
 (as próximas execuções de setup.sh e doctor.sh já o usam por padrão).
 
-Em cada shell novo:
-    source /opt/ros/$ros_distro/setup.bash
-    source $ws_root/install/setup.bash
+Em cada shell novo, a partir de $ws_root:
+    source scripts/ros_env.sh
+
+(carrega o ROS $ros_distro do perfil + o install/ deste workspace; use isto em
+vez de escrever a distro à mão, para o mesmo comando servir na Jetson e na
+Raspberry)
 EOF

@@ -1,10 +1,29 @@
-# O conteúdo anterior deste arquivo era um trecho de README colocado aqui por
-# engano — não ignorava nada.
+# Este repositório É a raiz do workspace colcon (~/evtol/dev).
+# Tudo abaixo é gerado ou trazido por ferramenta — nada disso é versionado aqui.
 
-# Perfil de ambiente escolhido nesta máquina. É local por definição: cada
+# Repositórios do workspace. São trazidos por `vcs import` a partir do
+# evtol.repos, cada um na versão pinada. Eles têm os próprios repositórios;
+# commitar o conteúdo deles aqui recriaria a duplicação que o modelo de
+# repos em camadas veio eliminar.
+/src/
+
+# Saídas do colcon
+/build/
+/install/
+/log/
+
+# Perfil de ambiente escolhido nesta máquina. Local por definição: cada
 # máquina (desktop, Jetson, Raspberry) tem o seu.
 .evtol-profile
 
 # Python
 __pycache__/
 *.py[cod]
+
+# Editor / sistema
+*.swp
+.DS_Store
+
+# Configuração local do Claude Code (por máquina, não da equipe).
+# Note que .vscode/ NÃO está aqui: as tasks são da equipe e são versionadas.
+.claude/settings.local.json

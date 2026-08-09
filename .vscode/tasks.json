@@ -19,7 +19,7 @@
             "label": "image bridge",
             "detail": "Launch ros_gz_image bridge (Gazebo camera → ROS2)",
             "type": "shell",
-            "command": "bash src/evtol-dev/scripts/image_bridge.sh",
+            "command": "bash scripts/image_bridge.sh",
             "problemMatcher": []
         },
         {
@@ -47,7 +47,7 @@
             "label": "mission launch",
             "detail": "Launch a mission FSM via ros2 launch",
             "type": "shell",
-            "command": "source /opt/ros/humble/setup.bash && source install/setup.bash && ros2 launch ${input:missionPackage} simulation.launch.py",
+            "command": "source scripts/ros_env.sh && ros2 launch ${input:missionPackage} simulation.launch.py",
             "problemMatcher": []
         },
         {
@@ -71,14 +71,14 @@
             "label": "ground station",
             "detail": "Launch Ground Station",
             "type": "shell",
-            "command": "bash src/evtol-dev/scripts/ground_station.sh ${input:missionPackage}",
+            "command": "bash scripts/ground_station.sh ${input:missionPackage}",
             "problemMatcher": []
         },
         {
             "label": "fechar garra",
             "detail": "Acionar servo para fechar a garra",
             "type": "shell",
-            "command": "bash src/evtol-dev/scripts/fechar_garra.sh",
+            "command": "bash scripts/fechar_garra.sh",
             "problemMatcher": []
         }
     ],

@@ -1,68 +1,77 @@
 # evtol-dev
 
-Meta repository for the eVTOL ITA workspace — documentation, templates, and guides.
+**A raiz do workspace ROS 2 da equipe eVTOL ITA.**
 
-This is **not** a ROS2 package. It is intentionally ignored by `colcon build`.
+Este repositório *é* `~/evtol/dev`. Ele não é um pacote ROS 2 e não é clonado
+dentro de `src/` — o `src/` é criado e preenchido pelo `vcs import` a partir do
+[evtol.repos](evtol.repos), e é ignorado pelo git daqui (cada repositório em
+`src/` tem o seu próprio).
 
-## Contents
+## Começando do zero
 
-| File | Description |
+Pré-requisitos (ROS 2, PX4, Micro-XRCE-DDS-Agent, Gazebo): **[docs/SETUP.md](docs/SETUP.md)**.
+
+Com eles prontos, o workspace inteiro sobe em dois comandos:
+
+```bash
+git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git ~/evtol/dev
+cd ~/evtol/dev && ./setup.sh --profile desktop-humble
+```
+
+## Conteúdo
+
+| Caminho | O que é |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Workspace architecture, dependency model, and golden rules |
-| [SETUP.md](SETUP.md) | Step-by-step setup guide for new team members |
-| [doctor.sh](doctor.sh) | Verifica se a máquina bate com o perfil de ambiente declarado |
-| [env/](env/) | Perfis de ambiente — o que o `.repos` não consegue pinar |
-| [templates/scripts/](templates/scripts/) | Template scripts to bootstrap new competition repos |
+| [evtol.repos](evtol.repos) | Manifesto de **código** — quais repositórios, em quais tags |
+| [env/](env/) | Manifesto de **ambiente** — um perfil por plataforma |
+| [doctor.sh](doctor.sh) | Verifica se a máquina bate com o perfil declarado |
+| [setup.sh](setup.sh) | Bootstrap: doctor → import → rosdep → build |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | O contrato: camadas, frames, tópicos, ambiente, git |
+| [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
+| [docs/gazebo_models_setup.md](docs/gazebo_models_setup.md) | Modelos e mundos customizados do Gazebo |
+| [scripts/](scripts/) | Scripts genéricos do workspace (bridge de imagem, ground station, garra) |
+| [templates/scripts/](templates/scripts/) | Modelos para criar um repo de competição novo |
+| [.vscode/tasks.json](.vscode/tasks.json) | Tasks do VSCode — já no lugar certo, sem cópia |
 
-## Verificação de ambiente (`doctor.sh`)
+## Os dois manifestos
+
+O `evtol.repos` garante que todo mundo tem o mesmo **código**. Ele não tem como
+garantir que todo mundo tem o mesmo **ambiente** — distro do ROS, versão do
+Gazebo, variante do bridge, PX4, apt, pip. É sempre aí que nascem os bugs caros,
+porque essa classe de erro não produz mensagem de erro: produz *"não funciona e
+ninguém sabe por quê"*.
+
+| Manifesto | Pina | Verificado por |
+|---|---|---|
+| `evtol.repos` | Código — repositórios git, em tags | `vcs import` |
+| `env/<perfil>.yaml` | Ambiente — distro, Gazebo, bridge, PX4, apt, pip | `doctor.sh` |
 
 ```bash
 ./doctor.sh --list                      # perfis disponíveis
 ./doctor.sh --profile desktop-humble    # verifica esta máquina
-echo desktop-humble > .evtol-profile    # fixa o perfil; depois basta ./doctor.sh
 ```
 
-Sai com código 0 se o ambiente confere e 1 se não — por isso pode ser usado como
-portão dentro do `setup.sh` e do CI.
+Sai com código 0 se confere e 1 se não — por isso serve de portão no `setup.sh`
+e no CI. Detalhes e as regras de edição em
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), seção *O Contrato de Ambiente*.
 
-### Por que isso existe
+## Perfis
 
-Um manifesto `.repos` garante que todo mundo tem o mesmo **código**. Ele não tem
-como garantir que todo mundo tem o mesmo **ambiente**, e é sempre aí que nascem
-os bugs caros — porque essa classe de erro não produz mensagem de erro. Ela
-produz "não funciona e ninguém sabe por quê".
-
-Três casos reais do time, todos cobertos por `env/desktop-humble.yaml`:
-
-| Sintoma que apareceu | Causa real |
-|---|---|
-| Nenhum tópico do Gazebo chegava no ROS | `ros-humble-ros-gz-*` (compilado contra **Fortress**) instalado no lugar de `ros-humble-ros-gzgarden-*`. O PX4 v1.15.4 instala Gazebo **Garden**; o bridge tem que ser da mesma safra. Instala sem erro, roda sem erro, não enxerga nada. |
-| Código parou de funcionar sem ninguém ter mexido | Distro do ROS trocado (Humble ↔ Jazzy) sem aviso. Há um drone com Jetson (Humble) e outro com Raspberry Pi (Jazzy). |
-| Precisava editar o código à mão depois de subir pro drone | Versão de OpenCV diferente entre a máquina de dev e o drone — funções com nome levemente diferente entre as versões. |
-
-### Como editar um perfil
-
-Mude um valor em `env/<perfil>.yaml` **somente** quando a mudança for
-intencional e validada em simulação ou voo. Um valor alterado por acidente aqui
-é exatamente o bug que este arquivo existe para impedir. Os comentários
-`# verificado:` registram a versão exata observada numa máquina comprovadamente
-funcional; o valor enforçado é um glob um pouco mais frouxo, para não quebrar a
-cada patch do apt — o que fica pinado com precisão é sempre o que distingue uma
-variante **incompatível** de uma compatível.
-
-## How to use the templates
-
-When creating a new competition repository:
+O time voa com **duas plataformas ao mesmo tempo**: um drone com Jetson Orin
+Nano (Humble) e outro com Raspberry Pi (Jazzy). Numa mesma competição, algumas
+fases rodam numa e outras na outra. Por isso a distro nunca é um valor fixo
+dentro de script — vem do perfil, registrado em `.evtol-profile` (local, não
+versionado). Em scripts e tasks, use:
 
 ```bash
-# 1. Create the competition repo
-mkdir -p src/my_competition/scripts
+source scripts/ros_env.sh
+```
 
-# 2. Copy templates
-cp src/evtol-dev/templates/scripts/*.sh src/my_competition/scripts/
+## Criando um repo de competição novo
 
-# 3. Customize:
-#    - simulate.sh: add your Gazebo worlds and drone poses
-#    - build.sh: add your package targets
-#    - agent.sh: usually no changes needed
+```bash
+mkdir -p src/minha_competicao/scripts
+cp templates/scripts/*.sh src/minha_competicao/scripts/
+# depois: simulate.sh (mundos e poses), build.sh (alvos).
+# agent.sh normalmente não precisa de mudança.
 ```
