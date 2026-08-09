@@ -17,9 +17,20 @@ Complete guide to set up the development environment from scratch. After followi
 
 ```bash
 sudo apt update
-sudo apt install -y git cmake python3-colcon-common-extensions
-pip install --user -U empy==3.3.4 pyros-genmsg setuptools==59.6.0
+sudo apt install -y git cmake python3-colcon-common-extensions python3-vcstool python3-rosdep
+pip install --user -U empy==3.3.4 pyros-genmsg 'setuptools<80'
 ```
+
+> **Por que `setuptools<80`.** O `colcon build --symlink-install` instala
+> pacotes `ament_python` chamando `setup.py develop --editable`, e o
+> **setuptools 80.0.0 removeu a opção `--editable`**. Com 80 ou mais recente o
+> build morre no primeiro pacote Python com `error: option --editable not
+> recognized`, e o colcon aborta sem processar os demais. Verificado: 59.6.0,
+> 70.0.0, 75.6.0 e 79.0.0 funcionam; 80.0.0 e 83.0.0 não.
+>
+> A versão anterior deste guia pinava `setuptools==59.6.0`, que é a versão de
+> sistema do Ubuntu 22.04 e não serve para o Python 3.12 do Ubuntu 24.04. A
+> faixa `<80` vale nos dois. O `doctor.sh` confere isso.
 
 ---
 
@@ -105,11 +116,13 @@ git checkout 9e510f3   # pinned commit — bump intentionally, not by drift
 
 ## 5. Install Micro-XRCE-DDS-Agent
 
-Pin to **v2.4.3** — the latest 2.x release compatible with PX4 v1.15.4:
+Pin to **v3.0.1** — a versão verificada nas máquinas do time que voam com
+PX4 v1.15.4. O mesmo pin está declarado em `env/<perfil>.yaml` e é conferido
+pelo `doctor.sh`; se você mudar aqui, mude lá também.
 
 ```bash
 cd ~
-git clone --branch v2.4.3 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+git clone --branch v3.0.1 --depth 1 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
 cd Micro-XRCE-DDS-Agent
 mkdir build && cd build
 cmake ..
@@ -133,16 +146,38 @@ After completing sections 1–5, bootstrap the entire workspace with two command
 ```bash
 mkdir -p ~/evtol/dev && cd ~/evtol/dev
 git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git src/evtol-dev
-./src/evtol-dev/setup.sh
+./src/evtol-dev/setup.sh --profile desktop-humble
 ```
 
-`setup.sh` does the following:
+`setup.sh` faz, nesta ordem:
 
-1. Imports every team repo at the pinned version from [evtol.repos](evtol.repos) (via `vcs import`).
-2. Runs `rosdep install` for system deps.
-3. Builds the workspace with `colcon build --symlink-install --executor sequential`.
+1. **Verifica o ambiente** contra `env/<perfil>.yaml` (`doctor.sh`) — e **para** se algo não confere.
+2. Importa todos os repos nas versões pinadas em [evtol.repos](evtol.repos) (via `vcs import`).
+3. Roda `rosdep install` para as dependências de sistema.
+4. Compila com `colcon build --symlink-install --executor sequential`.
 
-The pinned versions live in `evtol.repos`; the bootstrap is the same on every machine.
+### Qual perfil usar
+
+O perfil determina a distro do ROS, a versão do Gazebo, a variante do bridge e
+os pins de apt/pip. Não existe padrão, de propósito: adivinhar errado é
+exatamente o bug que isso veio eliminar.
+
+| Perfil | Máquina |
+|---|---|
+| `desktop-humble` | PC de desenvolvimento e simulação (ROS 2 Humble, Gazebo Garden) |
+
+Liste os disponíveis com `./src/evtol-dev/doctor.sh --list`.
+
+Depois da primeira execução bem-sucedida o perfil fica registrado em
+`.evtol-profile`, e você pode chamar `./src/evtol-dev/setup.sh` sem argumentos.
+
+### Se o `doctor.sh` reprovar
+
+Ele imprime a linha de correção de cada item. Corrija e rode de novo. Existe um
+`--skip-doctor`, mas ele não serve para "resolver" a reprovação: cada checagem
+existe porque aquele item já custou tempo ao time, e nenhuma delas é cosmética.
+O caso clássico é o bridge Gazebo↔ROS — instalar a variante errada não gera
+erro nenhum, só faz nenhum tópico do Gazebo chegar no ROS.
 
 ### 6.1 Set up VSCode Tasks
 
