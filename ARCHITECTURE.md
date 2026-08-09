@@ -31,14 +31,15 @@ The workspace follows a **flat repos + colcon** pattern: each GitHub repository 
         │   ├── drone_lib/              ← Drone class + PID + movement + transforms
         │   ├── stdstates/              ← standard FSM states (takeoff, landing, waypoints)
         │   ├── cv_nodes/               ← computer vision solutions
+        │   │   ├── detector/           ← classe base compartilhada
         │   │   ├── qrcode_detector/    ← ROS2 package
-        │   │   └── window_detector/    ← ROS2 package
+        │   │   ├── window_detector/    ← ROS2 package
+        │   │   └── ...                 ← 12 pacotes ao todo; veja `colcon list`
         │   ├── camera_publisher/       ← camera image publisher
         │   ├── sae2026/                ← SAE 2026 competition
         │   │   ├── scripts/            ← competition-specific simulation scripts
-        │   │   └── mission_1/          ← ROS2 package
-        │   ├── telemetry_handler/      ← (independent project)
-        │   └── treinamento_2026/       ← (independent project)
+        │   │   └── mission_1/ ...      ← um ROS2 package por missão
+        │   └── telemetry_handler/      ← (independent project)
         ├── build/                      ← colcon build artifacts (auto-generated)
         ├── install/                    ← colcon install space (auto-generated)
         └── log/                        ← colcon build logs (auto-generated)
@@ -58,6 +59,62 @@ These tools live **outside** the colcon workspace and are required for simulatio
 | **QGroundControl** | `~/Downloads/QGroundControl.AppImage` | Ground control station for monitoring/commanding the drone. |
 
 > **Why `~/`?** PX4-Autopilot's internal scripts assume `~/PX4-Autopilot`. Keeping it there avoids path issues.
+
+As versões exatas de cada um destes **não moram nesta tabela** — moram em
+`env/<perfil>.yaml`, que é lido pelo `doctor.sh`. Uma tabela em Markdown não
+tem como ser verificada; um perfil tem. Veja a seção seguinte.
+
+---
+
+## O Contrato de Ambiente
+
+O `evtol.repos` garante que todo mundo tem o mesmo **código**. Ele não tem como
+garantir que todo mundo tem o mesmo **ambiente**, e é aí que nasceram os bugs
+mais caros do time — porque essa classe de erro **não produz mensagem de erro**.
+Produz "não funciona e ninguém sabe por quê".
+
+Por isso o workspace tem **dois manifestos**, não um:
+
+| Manifesto | Pina | Verificado por |
+|---|---|---|
+| `evtol.repos` | **Código** — repositórios git, em tags | `vcs import` |
+| `env/<perfil>.yaml` | **Ambiente** — distro do ROS, versão do Gazebo, variante do bridge, PX4, apt, pip | `doctor.sh` |
+
+### Perfis de plataforma
+
+O time voa com **duas plataformas ao mesmo tempo**: um drone com Jetson Orin
+Nano (ROS 2 Humble) e outro com Raspberry Pi (ROS 2 Jazzy). Numa mesma
+competição, algumas fases rodam numa e outras na outra. A distro, portanto,
+**nunca pode ser um valor fixo dentro de um script** — é um parâmetro do perfil.
+
+| Perfil | Máquina | Distro | Simulação |
+|---|---|---|---|
+| `desktop-humble` | PC de desenvolvimento | Humble / Ubuntu 22.04 | sim (PX4 SITL + Gazebo Garden) |
+| `jetson-humble` | Jetson Orin Nano | Humble / Ubuntu 22.04 | não |
+| `rpi-jazzy` | Raspberry Pi | Jazzy / Ubuntu 24.04 | não |
+
+Cada máquina fixa o seu perfil uma vez, em `.evtol-profile` (arquivo local, não
+versionado — cada máquina tem o seu). Todos os scripts leem dali.
+
+### Regras
+
+1. **Toda versão que já quebrou o time vira uma linha num perfil.** Um bug de
+   ambiente que foi diagnosticado e não virou checagem vai acontecer de novo.
+2. **Mudar um valor num perfil é uma decisão, não um efeito colateral.** Só
+   mude com a mudança validada em simulação ou voo, e num PR próprio.
+3. **`--skip-doctor` não resolve reprovação.** A reprovação é real.
+4. **Não existe distro padrão.** Adivinhar errado é o bug que isso veio eliminar.
+
+### Por que isso não é excesso de zelo
+
+Casos reais, todos diagnosticados custando horas ou dias, todos hoje cobertos:
+
+| O que apareceu | O que era |
+|---|---|
+| Nenhum tópico do Gazebo chegava no ROS | O bridge tem que ser compilado contra o mesmo `gz-transport` que o Gazebo usa. O PX4 v1.15.4 instala Gazebo **Garden**, então o pacote é `ros-humble-ros-gz`**`garden`**`-*`. O nome óbvio, `ros-humble-ros-gz-*`, é **Fortress**: instala sem erro, roda sem erro, não enxerga nada. |
+| Código parou de funcionar sem ninguém ter mexido | Distro do ROS trocada sem aviso entre Humble e Jazzy. |
+| Precisava editar o código à mão depois de subir pro drone | Versão de OpenCV diferente entre a máquina de dev e o drone. A API do ArUco, por exemplo, mudou de forma incompatível entre 4.6 e 4.7. |
+| `colcon build` falhava no primeiro pacote Python | `setuptools >= 80` removeu a opção `--editable`, usada pelo `--symlink-install` em pacotes `ament_python`. O pin correto é `<80`. |
 
 ---
 
@@ -442,3 +499,8 @@ When the team consistently follows the rules above, `evtol.repos` stays a meanin
 6. **Nothing above `drone_lib` touches NED/FRD or `px4_msgs`** — `drone_lib` is the only PX4 boundary. See *Frames & Units Convention*.
 7. **Pin tags, never branches** in `evtol.repos`. See *Versioning Policy*.
 8. **No long-lived branches.** See *Git Workflow Practices*.
+9. **Versão que já quebrou o time vira linha num perfil.** Um diagnóstico de
+   ambiente que não virou checagem no `env/<perfil>.yaml` vai ser feito de novo
+   do zero daqui a alguns meses. Veja *O Contrato de Ambiente*.
+10. **A distro do ROS nunca é um valor fixo em script.** Ela vem do perfil —
+    voamos com Humble na Jetson e Jazzy na Raspberry ao mesmo tempo.
