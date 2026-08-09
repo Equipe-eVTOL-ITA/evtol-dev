@@ -93,11 +93,38 @@ apt:
 # -----------------------------------------------------------------------------
 # Pacotes pip
 # -----------------------------------------------------------------------------
-# NOTA: os pins de `required` (OpenCV, numpy) são definidos no passo 4 do plano,
-# junto com o contract test de API do cv2. A lista `forbidden` abaixo já vale
-# desde agora porque descreve conflitos verificados.
+# NOTA: os pins de OpenCV e numpy são definidos no passo seguinte, junto com o
+# contract test de API do cv2.
+#
+# O valor esperado aceita duas formas:
+#   glob        "4.10.*"   — casamento de texto
+#   restrição   "<80"      — comparação numérica de versão
 pip:
-  required: {}
+  required:
+    # ---------------------------------------------------------------------
+    # setuptools: TEM que ser < 80.
+    #
+    # O `colcon build --symlink-install` — o comando de build documentado no
+    # SETUP.md, usado em todos os build.sh — instala pacotes ament_python
+    # chamando `setup.py develop --editable`. O setuptools 80.0.0 removeu a
+    # opção `--editable`. Com >= 80 o build falha assim:
+    #
+    #     error: option --editable not recognized
+    #
+    # e o colcon aborta: o pacote falha e os demais nem chegam a ser
+    # processados. Ou seja: com setuptools novo, um membro novo seguindo o
+    # SETUP.md ao pé da letra NÃO consegue compilar o workspace.
+    #
+    # A fronteira foi determinada empiricamente (2026-08-09), rodando o
+    # comando real do colcon em venvs isolados:
+    #     59.6.0 OK | 70.0.0 OK | 75.6.0 OK | 79.0.0 OK
+    #     80.0.0 FALHA | 83.0.0 FALHA
+    #
+    # Pinamos a faixa e não um valor exato porque `<80` vale igualmente no
+    # Ubuntu 22.04/Python 3.10 e no 24.04/Python 3.12 — o SETUP.md pinava
+    # `setuptools==59.6.0`, que é a versão de sistema do 22.04 e não funciona
+    # no Python 3.12 do perfil rpi-jazzy.
+    setuptools: "<80"
 
   forbidden:
     opencv-contrib-python: >-

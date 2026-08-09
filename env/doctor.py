@@ -116,8 +116,51 @@ def pip_version(pkg: str) -> str | None:
         return None
 
 
+_SPECIFIER_RE = re.compile(r"^\s*(==|!=|<=|>=|<|>|~=)")
+
+
+def is_specifier(expected: str) -> bool:
+    """True se o valor esperado for uma restrição de versão (ex.: '<80')."""
+    return bool(_SPECIFIER_RE.match(str(expected)))
+
+
 def matches(actual: str, expected: str) -> bool:
-    return expected in ("*", "", None) or fnmatch.fnmatch(actual, expected)
+    """Compara a versão observada com a esperada.
+
+    Aceita duas formas:
+      - glob      "0.244.*"   — casa texto, bom para versões do apt, que não
+                                seguem PEP 440 (ex.: '0.244.11-1002jammy').
+      - restrição "<80", ">=1.26,<2" — comparação numérica de verdade, para
+                                quando o que importa é uma faixa e não um valor.
+    """
+    expected = "" if expected is None else str(expected).strip()
+    if expected in ("*", ""):
+        return True
+
+    if is_specifier(expected):
+        try:
+            from packaging.specifiers import SpecifierSet
+            from packaging.version import InvalidVersion, Version
+
+            try:
+                return Version(actual) in SpecifierSet(expected)
+            except InvalidVersion:
+                # Versões do apt frequentemente não são PEP 440. Nesse caso a
+                # restrição não é aplicável — melhor não afirmar nada do que
+                # afirmar errado.
+                return True
+        except ImportError:
+            return True
+
+    return fnmatch.fnmatch(actual, expected)
+
+
+def install_hint(pkg: str, expected: str) -> str:
+    """Comando de instalação correto para a forma do valor esperado."""
+    expected = str(expected).strip()
+    if is_specifier(expected):
+        return f"pip install '{pkg}{expected}'"
+    return f"pip install '{pkg}=={expected}'"
 
 
 # --------------------------------------------------------------------------- #
@@ -246,15 +289,15 @@ def check_pip(spec: dict, rep: Report) -> None:
             want = "*" if want is None else str(want)
             actual = pip_version(pkg)
             if actual is None:
-                rep.fail(pkg, "nao instalado", fix=f"pip install '{pkg}=={want}'")
+                rep.fail(pkg, "nao instalado", fix=install_hint(pkg, want))
             elif not matches(actual, want):
                 rep.fail(
                     pkg,
                     f"versao {actual} nao casa com o esperado '{want}'",
-                    fix=f"pip install --force-reinstall '{pkg}=={want}'",
+                    fix=install_hint(pkg, want),
                 )
             else:
-                rep.ok(pkg, actual)
+                rep.ok(pkg, f"{actual}  (exigido: {want})")
 
     if forbidden:
         section("Pacotes pip proibidos (conflitantes)")
