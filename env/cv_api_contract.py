@@ -133,11 +133,37 @@ class _Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def scan(src: Path) -> tuple[dict[str, set[str]], int]:
+def manifest_repos(ws_root: Path) -> set[str] | None:
+    """Nomes de diretório que o evtol.repos traz para dentro de src/.
+
+    O contrato vale para o código que o manifesto declara. Um clone avulso que
+    alguém deixou em src/ — competição antiga, projeto de outra pessoa — não
+    deve reprovar o ambiente do time. Devolve None se não houver manifesto, e
+    nesse caso varremos tudo.
+    """
+    # Raiz do workspace, ou layout antigo com o evtol-dev dentro de src/.
+    for manifest in (ws_root / "evtol.repos", ws_root / "src/evtol-dev/evtol.repos"):
+        if manifest.exists():
+            break
+    else:
+        return None
+    try:
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text()) or {}
+    except Exception:
+        return None
+    repos = data.get("repositories")
+    return set(repos) if isinstance(repos, dict) and repos else None
+
+
+def scan(src: Path, only: set[str] | None = None) -> tuple[dict[str, set[str]], int]:
     """Devolve ({módulo: {símbolos exigidos}}, nº de símbolos com guarda).
 
     Símbolos protegidos por `hasattr` ou `try/except AttributeError` são
     descontados: o código já lida com a ausência deles.
+
+    `only` limita a varredura a esses diretórios de primeiro nível sob `src`.
     """
     required: dict[str, set[str]] = {}
     n_guarded = 0
@@ -145,6 +171,10 @@ def scan(src: Path) -> tuple[dict[str, set[str]], int]:
     for path in sorted(src.rglob("*.py")):
         if _SKIP & set(path.parts):
             continue
+        if only is not None:
+            rel = path.relative_to(src)
+            if not rel.parts or rel.parts[0] not in only:
+                continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), str(path))
         except (OSError, SyntaxError):
@@ -203,7 +233,20 @@ def main() -> int:
         print("      Instale o OpenCV do perfil: veja env/<perfil>.yaml", file=sys.stderr)
         return 1
 
-    used, n_guarded = scan(src)
+    # A raiz do workspace é o pai de src/ — é lá que vive o evtol.repos.
+    only = manifest_repos(src.parent)
+    if only is not None:
+        present = sorted(d for d in only if (src / d).is_dir())
+        ignored = sorted(
+            d.name
+            for d in src.iterdir()
+            if d.is_dir() and d.name not in only and d.name != "evtol-dev"
+        )
+        print(f"Escopo: {len(present)} repositório(s) do evtol.repos")
+        if ignored:
+            print(f"        (fora do manifesto, não checados: {', '.join(ignored)})")
+
+    used, n_guarded = scan(src, only)
     total = sum(len(v) for v in used.values())
     if total == 0:
         print(f"Nenhum uso de cv2 encontrado em {src}.")
