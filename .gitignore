@@ -1,3 +1,10 @@
-# evtol-dev
+# O conteúdo anterior deste arquivo era um trecho de README colocado aqui por
+# engano — não ignorava nada.
 
-Documentation, templates, and guides for the eVTOL ITA workspace.
+# Perfil de ambiente escolhido nesta máquina. É local por definição: cada
+# máquina (desktop, Jetson, Raspberry) tem o seu.
+.evtol-profile
+
+# Python
+__pycache__/
+*.py[cod]

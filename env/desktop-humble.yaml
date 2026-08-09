@@ -1,0 +1,175 @@
+# =============================================================================
+# Perfil de ambiente: desktop-humble
+# =============================================================================
+# Máquina de DESENVOLVIMENTO e SIMULAÇÃO (PX4 SITL + Gazebo).
+#
+# Este arquivo é o contrato de AMBIENTE. Ele pina o que o `evtol.repos` não
+# consegue pinar: distro do ROS, versão do Gazebo, variante do bridge, PX4,
+# pacotes apt e pip.
+#
+# Verifique sua máquina contra este perfil com:
+#     ./doctor.sh --profile desktop-humble
+#
+# Como editar: mude um valor aqui SÓ quando a mudança for intencional e
+# validada em voo/simulação. Um valor mudado por acidente aqui é exatamente
+# o bug que este arquivo existe para impedir.
+#
+# Os valores foram capturados de uma máquina comprovadamente funcional em
+# 2026-08-09. Os comentários "verificado:" registram a versão exata observada;
+# o valor enforçado é um glob deliberadamente mais frouxo, para não quebrar a
+# cada patch de segurança do apt. O que está pinado com precisão é sempre o
+# que distingue uma variante INCOMPATÍVEL de uma compatível.
+# =============================================================================
+
+profile: desktop-humble
+description: Máquina de desenvolvimento — PX4 SITL + Gazebo Garden + ROS 2 Humble
+simulation: true
+
+os:
+  distributor_id: Ubuntu
+  release: "22.04"
+  python: "3.10"
+
+ros:
+  distro: humble
+
+# -----------------------------------------------------------------------------
+# Pacotes apt
+# -----------------------------------------------------------------------------
+apt:
+
+  required:
+    # --- Gazebo Garden ---------------------------------------------------
+    # O `Tools/setup/ubuntu.sh` do PX4 v1.15.4 instala `gz-garden`. Não é
+    # escolha nossa: está no código do PX4. Toda a stack de simulação tem que
+    # ser da mesma safra (Garden = gz-sim7 + gz-transport12).
+    gz-garden: "1.*"                      # verificado: 1.0.0-1~jammy
+    gz-sim7-cli: "7.*"                    # verificado: 7.9.0-1~jammy
+    libgz-sim7: "7.*"                     # verificado: 7.9.0-1~jammy
+    libgz-transport12: "12.*"             # verificado: 12.2.2-1~jammy
+
+    # --- Bridge ROS <-> Gazebo -------------------------------------------
+    # ATENÇÃO: este é o ponto que já custou dias de depuração ao time.
+    #
+    # O bridge precisa ser compilado contra a MESMA versão do gz-transport que
+    # o Gazebo usa. Para Humble + Garden, o pacote é `ros-humble-ros-gzGARDEN-*`.
+    # O nome "óbvio" — `ros-humble-ros-gz-*`, sem sufixo — é compilado contra
+    # FORTRESS (gz-transport11) e é a armadilha: instala sem erro, executa sem
+    # erro, e simplesmente não enxerga tópico nenhum do Gazebo. Falha silenciosa.
+    #
+    # Veja a lista `forbidden` abaixo.
+    ros-humble-ros-gzgarden-image: "0.244.*"        # verificado: 0.244.11-1002jammy
+    ros-humble-ros-gzgarden-bridge: "0.244.*"       # verificado: 0.244.11-1002jammy
+    ros-humble-ros-gzgarden-sim: "0.244.*"          # verificado: 0.244.11-1002jammy
+    ros-humble-ros-gzgarden-interfaces: "0.244.*"   # verificado: 0.244.11-1002jammy
+
+    # --- ROS / build ------------------------------------------------------
+    ros-humble-desktop: "*"
+    python3-colcon-common-extensions: "*"
+    python3-vcstool: "*"
+    python3-rosdep: "*"
+    ros-humble-vision-msgs: "*"
+    ros-humble-cv-bridge: "*"
+
+  forbidden:
+    # Instalar qualquer um destes junto com o Garden quebra a simulação EM
+    # SILÊNCIO. O valor é a explicação mostrada quando o doctor encontra o
+    # pacote instalado.
+    ros-humble-ros-gz-image: >-
+      Variante FORTRESS (gz-transport11) do bridge. Com Gazebo Garden instalado
+      ela roda mas NÃO enxerga nenhum tópico do Gazebo — sem mensagem de erro.
+      Use ros-humble-ros-gzgarden-image.
+    ros-humble-ros-gz-bridge: >-
+      Variante FORTRESS do parameter_bridge. Mesmo problema.
+      Use ros-humble-ros-gzgarden-bridge.
+    ros-humble-ros-gz-sim: >-
+      Variante FORTRESS. Use ros-humble-ros-gzgarden-sim.
+    ros-humble-ros-gzharmonic-image: >-
+      Variante HARMONIC (gz-transport13). O PX4 v1.15.4 instala Garden, não
+      Harmonic. Use ros-humble-ros-gzgarden-image.
+    gz-harmonic: >-
+      Gazebo Harmonic conflita com o Garden que o PX4 v1.15.4 instala.
+
+# -----------------------------------------------------------------------------
+# Pacotes pip
+# -----------------------------------------------------------------------------
+# NOTA: os pins de OpenCV e numpy são definidos no passo seguinte, junto com o
+# contract test de API do cv2.
+#
+# O valor esperado aceita duas formas:
+#   glob        "4.10.*"   — casamento de texto
+#   restrição   "<80"      — comparação numérica de versão
+pip:
+  required:
+    # ---------------------------------------------------------------------
+    # setuptools: TEM que ser < 80.
+    #
+    # O `colcon build --symlink-install` — o comando de build documentado no
+    # SETUP.md, usado em todos os build.sh — instala pacotes ament_python
+    # chamando `setup.py develop --editable`. O setuptools 80.0.0 removeu a
+    # opção `--editable`. Com >= 80 o build falha assim:
+    #
+    #     error: option --editable not recognized
+    #
+    # e o colcon aborta: o pacote falha e os demais nem chegam a ser
+    # processados. Ou seja: com setuptools novo, um membro novo seguindo o
+    # SETUP.md ao pé da letra NÃO consegue compilar o workspace.
+    #
+    # A fronteira foi determinada empiricamente (2026-08-09), rodando o
+    # comando real do colcon em venvs isolados:
+    #     59.6.0 OK | 70.0.0 OK | 75.6.0 OK | 79.0.0 OK
+    #     80.0.0 FALHA | 83.0.0 FALHA
+    #
+    # Pinamos a faixa e não um valor exato porque `<80` vale igualmente no
+    # Ubuntu 22.04/Python 3.10 e no 24.04/Python 3.12 — o SETUP.md pinava
+    # `setuptools==59.6.0`, que é a versão de sistema do 22.04 e não funciona
+    # no Python 3.12 do perfil rpi-jazzy.
+    setuptools: "<80"
+
+  forbidden:
+    opencv-contrib-python: >-
+      Conflita com opencv-python: os dois instalam o mesmo módulo `cv2` e o que
+      vale passa a depender da ordem de instalação. Escolha UM. Se precisar dos
+      módulos contrib, use apenas opencv-contrib-python e remova opencv-python.
+
+# -----------------------------------------------------------------------------
+# Binários que precisam estar no PATH
+# -----------------------------------------------------------------------------
+commands:
+  gz:
+    version_cmd: "gz sim --version"
+    version_regex: "version (\\S+)"
+    expect_version: "7.*"                 # verificado: 7.9.0 (Garden)
+    fix: "sudo apt install gz-garden"
+
+  MicroXRCEAgent:
+    expect_path: /usr/local/bin/MicroXRCEAgent
+    fix: "Veja docs/SETUP.md seção 5 (compilar e `sudo make install`)."
+
+  colcon: {}
+  vcs:
+    fix: "sudo apt install python3-vcstool"
+  rosdep:
+    fix: "sudo apt install python3-rosdep"
+
+# -----------------------------------------------------------------------------
+# Repositórios externos ao workspace colcon
+# -----------------------------------------------------------------------------
+# Não entram no evtol.repos porque não são pacotes ROS e não vivem em src/.
+# Continuam sendo dependências duras da simulação — e portanto pinadas aqui.
+git_repos:
+  ~/PX4-Autopilot:
+    expect_describe: "v1.15.4"
+    fix: "git -C ~/PX4-Autopilot fetch --tags && git -C ~/PX4-Autopilot checkout v1.15.4"
+
+  ~/PX4-gazebo-models:
+    expect_commit: "9e510f3"
+    fix: "git -C ~/PX4-gazebo-models fetch && git -C ~/PX4-gazebo-models checkout 9e510f3"
+
+  ~/Micro-XRCE-DDS-Agent:
+    # Verificado v3.0.1 na máquina que funciona.
+    # (O PR #2 do evtol-dev propunha pinar v2.4.3; isso NÃO corresponde ao que
+    # está em uso e voando. Se algum dia houver motivo para voltar ao 2.x, a
+    # mudança tem que ser validada em simulação antes de entrar aqui.)
+    expect_describe: "v3.0.1"
+    fix: "git -C ~/Micro-XRCE-DDS-Agent checkout v3.0.1 && recompilar (docs/SETUP.md seção 5)"
