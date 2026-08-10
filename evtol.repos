@@ -33,7 +33,10 @@ repositories:
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.1.1   # includes Detector class + jetson-side fixes past v0.1.0/main
+    version: v0.1.2   # ArUco na API de classe + guard largo em dependencia opcional
+    # A v0.1.1 nao funciona com o OpenCV 4.11.0.86 pinado em
+    # env/desktop-humble.yaml: usa aruco.DetectorParameters_create e
+    # aruco.detectMarkers, funcoes livres que nao existem nessa versao.
 
   # ---------- Layer 4: behavior ----------
   fsm:
