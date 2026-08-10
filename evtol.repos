@@ -23,7 +23,12 @@ repositories:
   drone_lib:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-    version: v0.1.0
+    version: v0.2.0
+    # A v0.1.0 exige cv_bridge no CMakeLists sem declara-lo no package.xml e
+    # sem usa-lo em lugar nenhum. Numa imagem minima -- e numa Jetson ou
+    # Raspberry recem-instalada -- o build falha, e o rosdep nao pode ajudar
+    # porque a dependencia nao esta declarada. O CI do stdstates reprovava
+    # por causa disso, ao compilar o drone_lib pinado.
 
   # ---------- Layer 2: perception ----------
   camera_publisher:
