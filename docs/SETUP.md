@@ -18,19 +18,28 @@ Complete guide to set up the development environment from scratch. After followi
 ```bash
 sudo apt update
 sudo apt install -y git cmake python3-colcon-common-extensions python3-vcstool python3-rosdep
-pip install --user -U empy==3.3.4 pyros-genmsg 'setuptools<80'
+pip install --user -U empy==3.3.4 pyros-genmsg 'setuptools<80' 'packaging>=23'
 ```
 
 > **Por que `setuptools<80`.** O `colcon build --symlink-install` instala
 > pacotes `ament_python` chamando `setup.py develop --editable`, e o
 > **setuptools 80.0.0 removeu a opção `--editable`**. Com 80 ou mais recente o
 > build morre no primeiro pacote Python com `error: option --editable not
-> recognized`, e o colcon aborta sem processar os demais. Verificado: 59.6.0,
-> 70.0.0, 75.6.0 e 79.0.0 funcionam; 80.0.0 e 83.0.0 não.
+> recognized`, e o colcon aborta sem processar os demais. Verificado: 80.0.0 e
+> 83.0.0 falham; tudo abaixo de 80 funciona **desde que o `packaging` seja
+> compatível** — veja a nota seguinte.
 >
 > A versão anterior deste guia pinava `setuptools==59.6.0`, que é a versão de
 > sistema do Ubuntu 22.04 e não serve para o Python 3.12 do Ubuntu 24.04. A
 > faixa `<80` vale nos dois. O `doctor.sh` confere isso.
+>
+> **E por que `packaging>=23`.** A partir do setuptools 71, ele chama uma
+> função do `packaging` que só existe da versão 23 em diante. O Ubuntu 22.04
+> traz `python3-packaging` **21.3** pelo apt, e a combinação quebra o build
+> logo no primeiro pacote Python, com `canonicalize_version() got an
+> unexpected keyword argument`. Os dois pins andam juntos — e o `doctor.sh`
+> ainda roda um teste funcional que instala um pacote de mentira para
+> confirmar que o caminho inteiro funciona.
 
 ---
 

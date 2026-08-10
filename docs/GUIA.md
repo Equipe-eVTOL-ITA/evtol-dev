@@ -248,6 +248,8 @@ reprovação é real.
 Sistema operacional e Python · distro do ROS (instalada **e** ativa no shell) ·
 pacotes apt obrigatórios e proibidos · pacotes pip obrigatórios e proibidos ·
 binários no PATH (`gz`, `MicroXRCEAgent`, `colcon`, `vcs`, `rosdep`) ·
+**um teste funcional** que instala um pacote `ament_python` de mentira e confirma
+que o caminho do `colcon build --symlink-install` funciona ·
 repositórios externos (`PX4-Autopilot`, `Micro-XRCE-DDS-Agent`,
 `PX4-gazebo-models`) na versão certa · e o **contrato de API do OpenCV**.
 
@@ -672,6 +674,7 @@ cd ~/evtol/dev && ./doctor.sh
 | Nenhum tópico do Gazebo no ROS | Variante errada do bridge. O doctor pega. |
 | Nó de visão morre no primeiro frame | Versão de OpenCV / API do ArUco. O contrato de API pega. |
 | `error: option --editable not recognized` | `setuptools >= 80`. O doctor pega. |
+| `canonicalize_version() got an unexpected keyword argument` | `packaging` velho (21.3 do apt) com `setuptools >= 71`. `pip install --user 'packaging>=23'`. O doctor pega. |
 | `SystemError` no `imgmsg_to_cv2` | `numpy >= 2` com o `cv_bridge` do Humble. O doctor pega. |
 | Pacote compila mas o `ros2 run` não acha | Terminal antigo. Abra outro e `source scripts/ros_env.sh`. |
 | `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
