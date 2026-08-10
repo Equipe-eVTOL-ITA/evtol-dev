@@ -101,6 +101,12 @@ pip:
   # código chama existem de fato. É a rede de segurança para quando as versões
   # divergirem por motivo legítimo entre perfis (Python 3.10 vs 3.12, OpenCV
   # com CUDA do JetPack na Jetson).
+  # Testa DE VERDADE se a maquina instala um pacote ament_python, em vez de
+  # so conferir numeros de versao. A restricao real e uma RELACAO entre
+  # setuptools e packaging, que nenhum pin isolado expressa. Veja
+  # env/build_smoke.py.
+  check_python_build: true
+
   check_opencv_api: true
 
   required:
@@ -127,7 +133,40 @@ pip:
     # Ubuntu 22.04/Python 3.10 e no 24.04/Python 3.12 — o SETUP.md pinava
     # `setuptools==59.6.0`, que é a versão de sistema do 22.04 e não funciona
     # no Python 3.12 do perfil rpi-jazzy.
+    #
+    # ATENÇÃO: este pin NÃO basta sozinho. Veja `packaging` logo abaixo.
     setuptools: "<80"
+
+    # ---------------------------------------------------------------------
+    # packaging: >= 23, e este pin existe por causa do setuptools.
+    #
+    # A partir do setuptools 71, ele chama
+    # `packaging.utils.canonicalize_version(..., strip_trailing_zero=...)`,
+    # parâmetro que só existe no packaging >= 22 (e a compatibilidade só fica
+    # completa no 23). O Ubuntu 22.04 traz `python3-packaging` **21.3** pelo
+    # apt; o 24.04 traz 24.0.
+    #
+    # Resultado numa máquina 22.04 sem esse pin: `colcon build` morre no
+    # primeiro pacote ament_python com
+    #
+    #     TypeError: canonicalize_version() got an unexpected keyword
+    #     argument 'strip_trailing_zero'
+    #
+    # e o doctor passava, porque conferia setuptools e não packaging. Foi
+    # exatamente assim que quebrou numa máquina do time enquanto na máquina de
+    # quem escreveu o pin havia um packaging novo instalado por acaso.
+    #
+    # Medido em venvs isolados, rodando o comando real do colcon:
+    #     setuptools <= 70.3.0  + packaging 21.3  -> OK
+    #     setuptools 71 a 79    + packaging 21.3  -> FALHA
+    #     setuptools 71 a 79    + packaging >= 23 -> OK
+    #     setuptools >= 80      + qualquer        -> FALHA (--editable)
+    #
+    # A alternativa seria pinar `setuptools <71` e viver com o packaging do
+    # apt. Preferimos subir o packaging: mantém o setuptools mais próximo do
+    # que o resto do ecossistema usa, e o teste funcional acima cobre a
+    # relação de qualquer jeito.
+    packaging: ">=23"
 
     # ---------------------------------------------------------------------
     # numpy: TEM que ser < 2.

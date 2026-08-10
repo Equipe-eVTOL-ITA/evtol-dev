@@ -359,6 +359,36 @@ def check_commands(spec: dict, rep: Report) -> None:
             rep.ok(name, match.group(1))
 
 
+def check_python_build(spec: dict, rep: Report) -> None:
+    """Testa DE VERDADE se a maquina instala um pacote ament_python.
+
+    Uma checagem de versao nao consegue expressar esta restricao, porque ela e
+    uma RELACAO entre setuptools e packaging:
+
+        setuptools <= 70.x   ok com o packaging 21.3 do Ubuntu 22.04
+        setuptools 71 a 79   exige packaging >= 23
+        setuptools >= 80     nao funciona (removeu --editable)
+
+    Ja aconteceu de uma maquina passar nas 36 checagens e o build falhar no
+    primeiro pacote por causa disso. Quando o que importa e um comportamento,
+    teste o comportamento.
+    """
+    if not spec or not spec.get("check_python_build"):
+        return
+    section("Instalacao de pacote Python (teste funcional)")
+
+    script = ENV_DIR / "build_smoke.py"
+    if not script.exists():
+        rep.warn("build_smoke.py", f"nao encontrado em {script}")
+        return
+
+    rc, out = run([sys.executable, str(script)])
+    if rc == 0:
+        rep.ok("colcon consegue instalar um pacote ament_python")
+    else:
+        rep.fail("colcon NAO consegue instalar um pacote ament_python", out)
+
+
 def check_cv_api(spec: dict, rep: Report) -> None:
     """Roda o contrato de API do OpenCV, se o perfil pedir.
 
@@ -507,6 +537,7 @@ def main() -> int:
     check_pip(spec.get("pip"), rep)
     check_commands(spec.get("commands"), rep)
     check_git_repos(spec.get("git_repos"), rep)
+    check_python_build(spec.get("pip"), rep)
     check_cv_api(spec.get("pip"), rep)
 
     print()
