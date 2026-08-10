@@ -57,6 +57,13 @@ print((spec.get('ros') or {}).get('distro', ''))
         return 1
     fi
 
+    # Os setup.bash do ROS e do colcon leem variaveis nao definidas
+    # (AMENT_TRACE_SETUP_FILES, COLCON_TRACE, ...). Se quem nos deu `source`
+    # roda com `set -u` -- como todo script bem escrito do time --, isso
+    # aborta. Suspendemos `nounset` so durante o sourcing e restauramos depois.
+    local had_u=0
+    [[ $- == *u* ]] && { had_u=1; set +u; }
+
     # shellcheck disable=SC1090
     source "/opt/ros/$distro/setup.bash"
 
@@ -64,6 +71,8 @@ print((spec.get('ros') or {}).get('distro', ''))
         # shellcheck disable=SC1091
         source "$ws_root/install/setup.bash"
     fi
+
+    (( had_u )) && set -u
 
     return 0
 }
