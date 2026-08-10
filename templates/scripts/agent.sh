@@ -1,37 +1,28 @@
-#!/bin/bash
-# ==========================================================
-# Template: agent.sh
-# Starts the MicroXRCE-DDS Agent for simulation (UDP).
+#!/usr/bin/env bash
+# =============================================================================
+# Template: agent.sh — sobe o Micro XRCE-DDS Agent (ponte PX4 <-> ROS 2).
+# =============================================================================
 #
-# Usage: ./scripts/agent.sh
+#   ./scripts/agent.sh          # simulação (UDP)
 #
-# This script rarely needs customization. For hardware
-# (serial) connections, change udp4 to serial and set the
-# appropriate device path.
-# ==========================================================
-set -e
+# Normalmente NÃO precisa de customização. Em voo real, com o Pixhawk ligado
+# por serial, troque a última linha por algo como:
+#     MicroXRCEAgent serial --dev /dev/ttyTHS1 -b 921600
+# =============================================================================
+set -euo pipefail
 
-source /opt/ros/humble/setup.bash
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ws_root="$(cd "$script_dir/../../.." && pwd)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$ws_root/scripts/ros_env.sh"
 
-if [ -f "$WORKSPACE_DIR/install/setup.bash" ]; then
-    source "$WORKSPACE_DIR/install/setup.bash"
-fi
+export PATH="$PATH:/usr/local/bin"
 
-echo "Starting MicroXRCE-DDS Agent for SIMULATION (UDP)"
-
-export PATH=$PATH:/usr/local/bin
-
-if command -v MicroXRCEAgent &> /dev/null; then
-    MicroXRCEAgent udp4 -p 8888
-elif [ -f /usr/local/bin/MicroXRCEAgent ]; then
-    /usr/local/bin/MicroXRCEAgent udp4 -p 8888
-elif [ -f ~/Micro-XRCE-DDS-Agent/build/MicroXRCEAgent ]; then
-    ~/Micro-XRCE-DDS-Agent/build/MicroXRCEAgent udp4 -p 8888
-else
-    echo "Error: MicroXRCEAgent not found. Please install it first."
-    echo "See docs/SETUP.md for installation instructions."
+if ! command -v MicroXRCEAgent >/dev/null 2>&1; then
+    echo "ERRO: MicroXRCEAgent não encontrado." >&2
+    echo "      Veja docs/SETUP.md seção 5. O doctor.sh também confere isso." >&2
     exit 1
 fi
+
+echo "Micro XRCE-DDS Agent — simulação (UDP porta 8888)"
+exec MicroXRCEAgent udp4 -p 8888

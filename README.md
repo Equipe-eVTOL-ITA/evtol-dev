@@ -26,6 +26,7 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 | [env/](env/) | Manifesto de **ambiente** — um perfil por plataforma |
 | [doctor.sh](doctor.sh) | Verifica se a máquina bate com o perfil declarado |
 | [setup.sh](setup.sh) | Bootstrap: doctor → import → rosdep → build |
+| [docs/GUIA.md](docs/GUIA.md) | **Comece por aqui** — como o workspace funciona e como criar uma competição nova |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | O contrato: camadas, frames, tópicos, ambiente, git |
 | [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
 | [docs/gazebo_models_setup.md](docs/gazebo_models_setup.md) | Modelos e mundos customizados do Gazebo |

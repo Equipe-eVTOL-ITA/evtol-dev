@@ -1,64 +1,64 @@
-#!/bin/bash
-# ==========================================================
-# Template: build.sh
-# Builds the workspace packages for a specific competition.
+#!/usr/bin/env bash
+# =============================================================================
+# Template: build.sh — compila os pacotes desta competição.
+# =============================================================================
 #
-# Usage: ./scripts/build.sh <target>
-#   Targets: all, deps, or a specific package name
+#   ./scripts/build.sh <alvo>
 #
-# Copy this file to your competition's scripts/ directory
-# and customize the case block with your packages.
-# ==========================================================
-set -e
+# Alvos que já vêm prontos:
+#   deps   — só as bibliotecas compartilhadas (rápido, use depois de um
+#            `vcs import` ou quando alguém bumpar um pin)
+#   all    — tudo o que estiver em src/
+#
+# Copie para o scripts/ da sua competição e acrescente um alvo por missão.
+# =============================================================================
+set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# <ws>/src/<competicao>/scripts/  ->  <ws>
+ws_root="$(cd "$script_dir/../../.." && pwd)"
+comp_dir="$(cd "$script_dir/.." && pwd)"
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <target>"
-    echo "Targets:"
-    echo "  all           — build everything"
-    echo "  deps          — build only shared dependencies"
-    # ---- CUSTOMIZE: Add your competition packages here ----
-    # echo "  mission_1     — build only mission_1"
-    exit 1
-fi
+# Carrega a distro do perfil desta máquina. Nunca escreva
+# `source /opt/ros/humble/setup.bash` aqui: voamos com Humble na Jetson e
+# Jazzy na Raspberry, e o mesmo script serve aos dois.
+source "$ws_root/scripts/ros_env.sh"
 
-source /opt/ros/humble/setup.bash
-
-if [ -e "$WORKSPACE_DIR/install/setup.bash" ]; then
-    source "$WORKSPACE_DIR/install/setup.bash"
-fi
+cd "$ws_root"
 
 BUILD_TYPE=RelWithDebInfo
+# --executor sequential evita picos de RAM (veja docs/SETUP.md, seção de swap).
+COMMON=(--symlink-install --executor sequential
+        --cmake-args "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" "-DCMAKE_EXPORT_COMPILE_COMMANDS=On")
 
-cd "$WORKSPACE_DIR"
+usage() {
+    echo "Uso: $0 <alvo>"
+    echo "  deps   — só as bibliotecas compartilhadas"
+    echo "  all    — tudo"
+    echo "  <pkg>  — um pacote desta competição:"
+    colcon list --names-only --base-paths "$comp_dir" 2>/dev/null | sed 's/^/           /'
+}
 
-case $1 in
-    all)
-        colcon build \
-            --symlink-install \
-            --cmake-args "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" "-DCMAKE_EXPORT_COMPILE_COMMANDS=On" \
-            -Wall -Wextra -Wpedantic \
-            --executor sequential
-        ;;
+case "${1:-}" in
     deps)
-        colcon build \
-            --symlink-install \
-            --cmake-args "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" \
-            --packages-up-to stdstates \
-            --executor sequential
+        colcon build "${COMMON[@]}" --packages-up-to stdstates
         ;;
-    # ---- CUSTOMIZE: Add your competition packages here ----
-    # mission_1)
-    #     colcon build \
-    #         --symlink-install \
-    #         --cmake-args "-DCMAKE_BUILD_TYPE=$BUILD_TYPE" "-DCMAKE_EXPORT_COMPILE_COMMANDS=On" \
-    #         --packages-select mission_1 \
-    #         --executor sequential
-    #     ;;
+    all)
+        colcon build "${COMMON[@]}"
+        ;;
+    "" | -h | --help)
+        usage; exit 1
+        ;;
     *)
-        echo "Unknown target: $1"
-        exit 1
+        # Aceita qualquer pacote desta competição, sem precisar listá-los aqui.
+        if colcon list --names-only --base-paths "$comp_dir" 2>/dev/null | grep -qx "$1"; then
+            colcon build "${COMMON[@]}" --packages-up-to "$1"
+        else
+            echo "Alvo desconhecido: '$1'" >&2; echo >&2; usage >&2; exit 1
+        fi
         ;;
 esac
+
+echo
+echo "Pronto. Em cada shell novo, a partir de $ws_root:"
+echo "    source scripts/ros_env.sh"
