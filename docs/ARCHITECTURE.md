@@ -110,6 +110,24 @@ competição, algumas fases rodam numa e outras na outra. A distro, portanto,
 Cada máquina fixa o seu perfil uma vez, em `.evtol-profile` (arquivo local, não
 versionado — cada máquina tem o seu). Todos os scripts leem dali.
 
+### Criando o perfil de uma plataforma nova
+
+Rode na máquina em questão:
+
+```bash
+./env/collect.sh > /tmp/perfil.yaml
+```
+
+Ele levanta distro, versões de apt e pip, binários no PATH, repositórios
+externos e — quando detecta — L4T/CUDA na Jetson ou `libcamera` na Raspberry.
+Só lê; não instala nem altera nada.
+
+O resultado é um **rascunho**, não um perfil. Alguém precisa decidir quais
+valores viram contrato e com que precisão, e preencher a lista de `forbidden`
+daquela plataforma. Um perfil gerado e não revisado pina acidente junto com
+decisão — e a lista de proibidos, que é a parte que mais salva, nenhuma
+ferramenta consegue inferir.
+
 ### Regras
 
 1. **Toda versão que já quebrou o time vira uma linha num perfil.** Um bug de
