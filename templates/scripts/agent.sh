@@ -32,6 +32,6 @@ elif [ -f ~/Micro-XRCE-DDS-Agent/build/MicroXRCEAgent ]; then
     ~/Micro-XRCE-DDS-Agent/build/MicroXRCEAgent udp4 -p 8888
 else
     echo "Error: MicroXRCEAgent not found. Please install it first."
-    echo "See SETUP.md for installation instructions."
+    echo "See docs/SETUP.md for installation instructions."
     exit 1
 fi

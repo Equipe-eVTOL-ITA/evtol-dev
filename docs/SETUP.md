@@ -99,18 +99,18 @@ make px4_sitl
 
 > When prompted about submodule changes, type `y` and press ENTER.
 
-### (Optional) Custom Gazebo Models
+### Modelos e mundos customizados do Gazebo
 
-If the team uses custom Gazebo models, install the team fork pinned to a known-good commit:
+Necessário para simular os mundos das competições (`sae1_26`, `sae2_26`, ...).
 
-```bash
-cd ~/PX4-Autopilot/Tools/simulation/gz
-git checkout main
-git remote remove origin
-git remote add origin https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models.git
-git fetch origin
-git checkout 9e510f3   # pinned commit — bump intentionally, not by drift
-```
+Siga **[gazebo_models_setup.md](gazebo_models_setup.md)**.
+
+> A instrução que existia aqui — trocar o `remote` de
+> `Tools/simulation/gz` para o fork da equipe — **foi descontinuada**. Ela
+> convivia com o método de symlinks descrito no outro documento, e o resultado
+> foi máquina com os dois ao mesmo tempo, servindo mundos de commits diferentes
+> do mesmo repositório sem nenhum sinal disso. Se a sua máquina tem o método
+> antigo, o documento acima explica como voltar ao estado limpo.
 
 ---
 
@@ -144,10 +144,15 @@ MicroXRCEAgent --help
 After completing sections 1–5, bootstrap the entire workspace with two commands:
 
 ```bash
-mkdir -p ~/evtol/dev && cd ~/evtol/dev
-git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git src/evtol-dev
-./src/evtol-dev/setup.sh --profile desktop-humble
+git clone https://github.com/Equipe-eVTOL-ITA/evtol-dev.git ~/evtol/dev
+cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 ```
+
+> **O `evtol-dev` É a raiz do workspace.** Ele não é clonado dentro de `src/` —
+> ele *é* `~/evtol/dev`. O `src/` é criado e preenchido pelo `vcs import`, e é
+> ignorado pelo git deste repositório (cada repo em `src/` tem o seu próprio).
+> Assim o `.vscode/`, os `scripts/` e os perfis ficam versionados no lugar onde
+> são de fato usados, sem precisar copiar nada.
 
 `setup.sh` faz, nesta ordem:
 
@@ -166,10 +171,10 @@ exatamente o bug que isso veio eliminar.
 |---|---|
 | `desktop-humble` | PC de desenvolvimento e simulação (ROS 2 Humble, Gazebo Garden) |
 
-Liste os disponíveis com `./src/evtol-dev/doctor.sh --list`.
+Liste os disponíveis com `./doctor.sh --list`.
 
 Depois da primeira execução bem-sucedida o perfil fica registrado em
-`.evtol-profile`, e você pode chamar `./src/evtol-dev/setup.sh` sem argumentos.
+`.evtol-profile`, e você pode chamar `./setup.sh` sem argumentos.
 
 ### Se o `doctor.sh` reprovar
 
@@ -179,15 +184,19 @@ existe porque aquele item já custou tempo ao time, e nenhuma delas é cosmétic
 O caso clássico é o bridge Gazebo↔ROS — instalar a variante errada não gera
 erro nenhum, só faz nenhum tópico do Gazebo chegar no ROS.
 
-### 6.1 Set up VSCode Tasks
+### 6.1 VSCode Tasks
 
-Copy the VSCode tasks configuration from the meta repo:
+Nada a fazer. O `.vscode/tasks.json` já está versionado na raiz do workspace,
+que é exatamente onde o VSCode o procura:
 
 ```bash
-cp -r ~/evtol/dev/src/evtol-dev/.vscode ~/evtol/dev/.vscode
+code ~/evtol/dev
 ```
 
-This provides pre-configured tasks for simulation, building, and running missions.
+> Antes era preciso `cp -r src/evtol-dev/.vscode ~/evtol/dev/.vscode`. Toda
+> cópia deriva da origem, e essa derivou: os scripts copiados para a raiz
+> ficaram desatualizados, e um deles estava quebrado (resolvia `WORKSPACE_DIR`
+> para fora do workspace). Por isso o `evtol-dev` passou a ser a própria raiz.
 
 ### 6.2 (Need a specific repo at a non-pinned version?)
 
