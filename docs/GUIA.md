@@ -370,10 +370,58 @@ bash src/sae2026/scripts/build.sh deps        # só as bibliotecas compartilhada
 ### Quando alguém bumpa um pin
 
 ```bash
-git pull                # traz o evtol.repos novo
-vcs import src < evtol.repos
+git pull                        # traz o evtol.repos novo
+vcs import src < evtol.repos    # atualiza os repositórios em src/
 ./doctor.sh
 bash src/sae2026/scripts/build.sh all
+```
+
+### ⚠️ `vcs import` deixa os repositórios em *detached HEAD*
+
+Isto confunde todo mundo na primeira vez, então leia com atenção.
+
+O `evtol.repos` pina **tags**, e uma tag não é um branch. Depois de um
+`vcs import`, cada repositório em `src/` fica assim:
+
+```bash
+$ git -C src/drone_lib status
+HEAD detached at v0.2.0
+```
+
+Nesse estado você **pode compilar e rodar normalmente**, mas **não deve
+commitar**: um commit em detached HEAD não pertence a branch nenhum e some do
+seu radar assim que você trocar de lugar.
+
+**A regra prática:**
+
+| Situação | O que fazer |
+|---|---|
+| Montar a máquina, reproduzir o que voou, rodar o CI | `vcs import` — detached é o certo |
+| Ir mexer no código de um repositório | `git checkout main` **naquele repositório**, e trabalhe a partir dali |
+
+```bash
+cd ~/evtol/dev/src/drone_lib
+git checkout main               # sai do detached
+git pull
+git checkout -b fix/meu-ajuste  # e então trabalhe
+```
+
+Se você já commitou em detached HEAD sem querer, nada se perdeu — basta criar
+um branch ali mesmo, antes de sair:
+
+```bash
+git branch -c recupera-meu-trabalho   # ou: git switch -c recupera-meu-trabalho
+```
+
+**Antes de rodar `vcs import`,** confira se algum repositório tem trabalho
+pendente, porque ele vai trocar o que está checado out:
+
+```bash
+cd ~/evtol/dev
+for d in src/*/; do
+    printf '%-24s %s\n' "$(basename "$d")" \
+      "$(git -C "$d" status --porcelain 2>/dev/null | wc -l) alterações"
+done
 ```
 
 ---
@@ -626,6 +674,7 @@ cd ~/evtol/dev && ./doctor.sh
 | `error: option --editable not recognized` | `setuptools >= 80`. O doctor pega. |
 | `SystemError` no `imgmsg_to_cv2` | `numpy >= 2` com o `cv_bridge` do Humble. O doctor pega. |
 | Pacote compila mas o `ros2 run` não acha | Terminal antigo. Abra outro e `source scripts/ros_env.sh`. |
+| `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
 | Build falha só na sua máquina | Rode `./doctor.sh`; se passar, pode ser dependência não declarada — o CI mostra. |
 | Máquina trava durante o build | Falta de RAM. Veja a seção de swap no [SETUP.md](SETUP.md). |
 | Um pacote fica num estado esquisito | `rm -rf build/<pkg> install/<pkg>` e recompile. |
