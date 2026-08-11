@@ -33,7 +33,7 @@ Sai 0 se o caminho funciona, 1 se não.
 
 from __future__ import annotations
 
-import shutil
+import os
 import subprocess
 import sys
 import tempfile
@@ -59,6 +59,13 @@ setup(
 )
 """
 
+SETUP_CFG = """\
+[develop]
+script_dir=$base/lib/evtol_build_smoke
+[install]
+install_scripts=$base/lib/evtol_build_smoke
+"""
+
 PACKAGE_XML = """\
 <?xml version="1.0"?>
 <package format="3">
@@ -79,26 +86,49 @@ def main() -> int:
         (root / "resource").mkdir()
 
         (root / "setup.py").write_text(SETUP_PY, encoding="utf-8")
+        (root / "setup.cfg").write_text(SETUP_CFG, encoding="utf-8")
         (root / "package.xml").write_text(PACKAGE_XML, encoding="utf-8")
         (root / "evtol_build_smoke" / "__init__.py").write_text("", encoding="utf-8")
         (root / "resource" / "evtol_build_smoke").write_text("", encoding="utf-8")
 
         build_dir = Path(tmp) / "build"
         build_dir.mkdir()
+        # Destino da instalacao. O colcon mantem isso fora dos diretorios do
+        # sistema com um `prefix_override` no PYTHONPATH; aqui apontamos
+        # explicitamente para o temporario, o que da o mesmo efeito sem
+        # depender do mecanismo interno dele.
+        #
+        # Isto importa: sem apontar o destino, o `develop` tenta escrever o
+        # .egg-link em /usr/local/lib/pythonX/dist-packages e falha com
+        # "Permission denied" em qualquer maquina normal -- um falso positivo
+        # que nao tem nada a ver com o que queremos testar.
+        install_dir = Path(tmp) / "install"
+        install_dir.mkdir()
 
-        # Exatamente o que o colcon faz num pacote ament_python com
-        # --symlink-install.
+        env = dict(os.environ)
+        # O `develop` exige que o diretorio de destino esteja no sys.path.
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(install_dir)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
+        )
+
+        # Mesma invocacao que o colcon faz num pacote ament_python com
+        # --symlink-install (veja o command.log de qualquer build):
+        #     setup.py develop --editable --build-directory <build> --no-deps
         proc = subprocess.run(
             [
                 sys.executable,
+                "-W", "ignore:setup.py install is deprecated",
+                "-W", "ignore:easy_install command is deprecated",
                 "setup.py",
                 "develop",
                 "--editable",
-                "--build-directory",
-                str(build_dir),
+                "--build-directory", str(build_dir),
                 "--no-deps",
+                "--install-dir", str(install_dir),
+                "--script-dir", str(install_dir / "bin"),
             ],
             cwd=root,
+            env=env,
             capture_output=True,
             text=True,
             timeout=120,
