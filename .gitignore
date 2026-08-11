@@ -28,6 +28,5 @@ __pycache__/
 # Note que .vscode/ NÃO está aqui: as tasks são da equipe e são versionadas.
 .claude/settings.local.json
 
-
 # Configuração do VS Code
 .vscode/
