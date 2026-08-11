@@ -27,3 +27,7 @@ __pycache__/
 # Configuração local do Claude Code (por máquina, não da equipe).
 # Note que .vscode/ NÃO está aqui: as tasks são da equipe e são versionadas.
 .claude/settings.local.json
+
+
+# Configuração do VS Code
+.vscode/
