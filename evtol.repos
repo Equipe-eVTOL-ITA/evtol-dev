@@ -104,7 +104,12 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.1.0   # fase 1 completa
+    version: v0.2.0   # fase 1 validada em voo
+    # A v0.1.0 compila mas nao voa: reancora o referencial do mundo a cada
+    # redecolagem e persegue a caixa mais central da imagem em vez da base
+    # escolhida pela busca. O drone pousa na mesma base repetidamente e depois
+    # vai e volta pela arena. Exige vision_geometry v0.1.1 e stdstates v0.2.1.
+    #
     # Estava faltando neste manifesto embora ja fosse o repositorio de trabalho
     # da CBR: quem montasse o workspace so a partir daqui nao teria a fase 1 no
     # src/, e o `new_mission.sh` criaria fases num repositorio que o manifesto
