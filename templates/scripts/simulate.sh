@@ -21,13 +21,18 @@ ws_root="$(cd "$script_dir/../../.." && pwd)"
 # dois. Veja docs/ARCHITECTURE.md, "O Contrato de Ambiente".
 source "$ws_root/scripts/ros_env.sh"
 
-# O PX4 lê os .sdf da própria árvore; o gz moderno usa GZ_SIM_RESOURCE_PATH
-# (as variáveis GAZEBO_* são do Gazebo clássico e NÃO funcionam aqui).
-export GZ_SIM_RESOURCE_PATH="${GZ_SIM_RESOURCE_PATH:-}:\
-$HOME/PX4-Autopilot/Tools/simulation/gz/models:\
-$HOME/PX4-Autopilot/Tools/simulation/gz/worlds:\
-$HOME/PX4-gazebo-models/models:\
-$HOME/PX4-gazebo-models/worlds"
+# MODELOS: resolvidos pelo Gazebo via GZ_SIM_RESOURCE_PATH, e nao precisam
+# estar dentro da arvore do PX4. O proprio PX4 acrescenta a arvore dele ao
+# final desta variavel (veja gz_env.sh), entao o que exportamos aqui vem
+# ANTES e tem prioridade.
+#
+# A ordem importa e ja causou bug: quando a arvore do PX4 vinha primeiro, uma
+# copia antiga de modelo escondia a deste repositorio, e a versao que rodava
+# nao era a versionada. Com o repo da equipe na frente, ele e a fonte da
+# verdade e pode ate sobrescrever um modelo do proprio PX4.
+#
+# (As variaveis GAZEBO_* sao do Gazebo classico e nao funcionam aqui.)
+export GZ_SIM_RESOURCE_PATH="$HOME/PX4-gazebo-models/models:${GZ_SIM_RESOURCE_PATH:-}"
 
 cd "$HOME/PX4-Autopilot"
 
@@ -70,29 +75,32 @@ esac
 px4_gz="$HOME/PX4-Autopilot/Tools/simulation/gz"
 faltando=0
 
+# MUNDOS: o PX4 monta um caminho ABSOLUTO na arvore dele e passa ao gz sim
+# (px4-rc.simulator: `gz sim -s "${PX4_GZ_WORLDS}/${PX4_GZ_WORLD}.sdf"`).
+# Diferente dos modelos, aqui o arquivo precisa mesmo aparecer la dentro.
+# Criamos o link do mundo que vamos lancar, e so dele -- assim ninguem
+# precisa lembrar de refazer symlink quando um mundo novo entra no repo.
+if [[ ! -e "$px4_gz/worlds/$PX4_GZ_WORLD.sdf" \
+   && -e "$HOME/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf" ]]; then
+    echo "Criando link para o mundo '$PX4_GZ_WORLD' na arvore do PX4"
+    ln -sf "$HOME/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf" "$px4_gz/worlds/"
+fi
+
 if [[ ! -e "$px4_gz/worlds/$PX4_GZ_WORLD.sdf" ]]; then
     echo "ERRO: mundo '$PX4_GZ_WORLD.sdf' nao encontrado em" >&2
     echo "      $px4_gz/worlds/" >&2
-    if [[ -e "$HOME/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf" ]]; then
-        echo "      -> existe em ~/PX4-gazebo-models, so falta o symlink:" >&2
-        echo "         ln -sf ~/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf \\" >&2
-        echo "                $px4_gz/worlds/" >&2
-    else
-        echo "      -> nao existe nem em ~/PX4-gazebo-models. Crie o .sdf la." >&2
-    fi
+    echo "      -> nao existe nem em ~/PX4-gazebo-models. Crie o .sdf la." >&2
     faltando=1
 fi
 
-if [[ ! -e "$px4_gz/models/$PX4_SIM_MODEL" ]]; then
-    echo "ERRO: modelo '$PX4_SIM_MODEL' nao encontrado em" >&2
+# MODELOS: basta existir no repositorio da equipe ou na arvore do PX4 --
+# os dois estao no GZ_SIM_RESOURCE_PATH. Nao ha symlink de modelo.
+if [[ ! -e "$HOME/PX4-gazebo-models/models/$PX4_SIM_MODEL" \
+   && ! -e "$px4_gz/models/$PX4_SIM_MODEL" ]]; then
+    echo "ERRO: modelo '$PX4_SIM_MODEL' nao encontrado." >&2
+    echo "      Procurado em ~/PX4-gazebo-models/models/ e em" >&2
     echo "      $px4_gz/models/" >&2
-    if [[ -e "$HOME/PX4-gazebo-models/models/$PX4_SIM_MODEL" ]]; then
-        echo "      -> existe em ~/PX4-gazebo-models, so falta o symlink:" >&2
-        echo "         ln -sfn ~/PX4-gazebo-models/models/$PX4_SIM_MODEL \\" >&2
-        echo "                 $px4_gz/models/$PX4_SIM_MODEL" >&2
-    else
-        echo "      -> nao existe nem em ~/PX4-gazebo-models. Crie o modelo la." >&2
-    fi
+    echo "      -> crie o modelo em ~/PX4-gazebo-models/models/." >&2
     faltando=1
 fi
 

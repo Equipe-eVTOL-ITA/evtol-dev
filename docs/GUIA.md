@@ -492,9 +492,11 @@ case "${1:-}" in
 ```
 
 Os mundos (`.sdf`) e modelos vivem no repositório
-[PX4-gazebo-models](https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models) e são
-instalados por symlink — veja [gazebo_models_setup.md](gazebo_models_setup.md).
-Se a competição tem arena nova, é lá que o `.sdf` entra.
+[PX4-gazebo-models](https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models). Basta
+cloná-lo em `~` — modelos são achados pelo `GZ_SIM_RESOURCE_PATH` e o
+`simulate.sh` linka sozinho o mundo que for lançar. Se a competição tem arena
+nova, é lá que o `.sdf` entra. Veja
+[gazebo_models_setup.md](gazebo_models_setup.md).
 
 O `build.sh` e o `agent.sh` normalmente não precisam de mudança.
 
@@ -680,7 +682,7 @@ cd ~/evtol/dev && ./doctor.sh
 | `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
 | Build falha só na sua máquina | Rode `./doctor.sh`; se passar, pode ser dependência não declarada — o CI mostra. |
 | Máquina trava durante o build | Falta de RAM. Veja a seção de swap no [SETUP.md](SETUP.md). |
-| `gz_bridge: Service call timed out. Check GZ_SIM_RESOURCE_PATH` | Quase sempre **não** é o `GZ_SIM_RESOURCE_PATH`: é um mundo ou modelo novo em `~/PX4-gazebo-models` sem symlink dentro do PX4. Refaça os symlinks — [gazebo_models_setup.md](gazebo_models_setup.md). |
+| `gz_bridge: Service call timed out. Check GZ_SIM_RESOURCE_PATH` | Quase sempre **não** é o path. Ou o `.sdf` não existe em `~/PX4-gazebo-models` (o `simulate.sh` avisa antes), ou o Gazebo demorou demais no primeiro arranque numa máquina com pouca RAM — tente de novo. |
 | Um pacote fica num estado esquisito | `rm -rf build/<pkg> install/<pkg>` e recompile. |
 
 ### Onde perguntar ao próprio workspace
