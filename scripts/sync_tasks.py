@@ -96,6 +96,27 @@ def pacotes(comp: str) -> list[str]:
     return sorted(p for p in r.stdout.split() if p)
 
 
+def missoes(comp: str) -> list[str]:
+    """Pacotes da competicao que sao MISSAO de verdade.
+
+    O criterio e ter `launch/simulation.launch.py` -- que e exatamente o que a
+    task "sim: rodar missao" executa. Sem esse filtro, a lista misturava
+    pacotes de apoio (`audio_alert`) e pacotes de outros projetos que estao no
+    src/ (`cbr2025_fase4`), e quem escolhesse um deles recebia um erro do
+    `ros2 launch` sem entender por que aquilo estava na lista.
+
+    Listar so o que da para lancar e melhor do que validar depois: a escolha
+    errada deixa de existir.
+    """
+    base = SRC / comp
+    if not base.is_dir():
+        return []
+    return sorted(
+        d.name for d in base.iterdir()
+        if (d / "launch" / "simulation.launch.py").is_file()
+    )
+
+
 def montar_inputs() -> list[dict]:
     """Monta os inputs do tasks.json a partir do que existe em src/.
 
@@ -114,15 +135,14 @@ def montar_inputs() -> list[dict]:
 
     mundos_q: list[str] = []
     alvos_q: list[str] = []
-    todos_pacotes: list[str] = []
+    missoes_q: list[str] = []
     for c in comps:
         mundos_q += [f"{c}:{m}" for m in mundos(c)]
-        pkgs = pacotes(c)
-        alvos_q += [f"{c}:all", f"{c}:deps"] + [f"{c}:{p}" for p in pkgs]
-        todos_pacotes += pkgs
+        alvos_q += [f"{c}:all", f"{c}:deps"] + [f"{c}:{p}" for p in pacotes(c)]
+        missoes_q += [f"{c}:{m}" for m in missoes(c)]
     mundos_q = sorted(set(mundos_q))
     alvos_q = sorted(set(alvos_q))
-    todos_pacotes = sorted(set(todos_pacotes))
+    missoes_q = sorted(set(missoes_q))
 
     def pick(id_, desc, opts, default=None):
         opts = opts or [""]
@@ -138,10 +158,10 @@ def montar_inputs() -> list[dict]:
         # O default e so o valor pre-selecionado; qualquer opcao da lista serve.
         pick("mundo", "Mundo do Gazebo (competição:mundo)", mundos_q, "sae2026:sae1"),
         pick("alvoBuild", "O que compilar (competição:alvo)", alvos_q, "sae2026:all"),
-        # O pacote da missao NAO e qualificado: o `ros2 launch` e o
-        # `ground_station.sh` acham o pacote pelo nome, ja compilado, sem
-        # precisar saber de que competicao ele veio.
-        pick("pacoteMissao", "Pacote da missão", todos_pacotes, "mission_1"),
+        # Qualificado tambem, para dizer de que competicao a missao e. A task
+        # descarta a parte antes do ":" antes de chamar o ros2 launch.
+        pick("pacoteMissao", "Missão (competição:missão)", missoes_q,
+             "sae2026:mission_1"),
     ]
 
 
