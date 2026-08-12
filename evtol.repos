@@ -38,10 +38,24 @@ repositories:
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.1.2   # ArUco na API de classe + guard largo em dependencia opcional
+    version: v0.2.0   # base_detector real, sobre a classe Detector
+    # A v0.1.2 traz o base_detector como esqueleto quebrado: um script solto
+    # que lia base.png do disco, sem no ROS, sem dependencias declaradas e com
+    # o entry point apontando para um main() inexistente. Compilava.
+    #
     # A v0.1.1 nao funciona com o OpenCV 4.11.0.86 pinado em
     # env/desktop-humble.yaml: usa aruco.DetectorParameters_create e
     # aruco.detectMarkers, funcoes livres que nao existem nessa versao.
+
+  vision_geometry:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/vision_geometry.git
+    version: v0.1.0
+    # Projecao pixel -> mundo, header-only e SEM ROS: so OpenCV e Eigen. Em
+    # 2025 esta matematica vivia dentro do no ROS de cada fase (493 linhas
+    # replicadas em quatro), o que a tornava impossivel de testar sem subir
+    # simulacao e julgar a olho. Erro de sinal em referencial nao parece
+    # errado a olho: parece controle mal sintonizado.
 
   # ---------- Layer 4: behavior ----------
   fsm:
@@ -51,7 +65,10 @@ repositories:
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
-    version: v0.1.1   # chave rosdep do Eigen corrigida (Eigen3 -> eigen)
+    version: v0.2.0   # WaypointList, PrecisionAlign, PrecisionLanding, ReturnHome
+    # Muda a superficie publica, dai o bump de minor. A v0.1.1 corrigiu a chave
+    # rosdep do Eigen (Eigen3 -> eigen) e continua valida para quem so precisa
+    # de arming/takeoff/goto.
 
   # ---------- Cross-cutting ----------
   telemetry_handler:
