@@ -25,8 +25,19 @@ __pycache__/
 .DS_Store
 
 # Configuração local do Claude Code (por máquina, não da equipe).
-# Note que .vscode/ NÃO está aqui: as tasks são da equipe e são versionadas.
 .claude/settings.local.json
 
-# Configuração do VS Code
-.vscode/
+# VS Code: pessoal por padrão, EXCETO as tasks.
+#
+# O .vscode/ acumula arquivos que são de fato de cada um — settings.json,
+# launch.json, c_cpp_properties.json costumam ter caminhos absolutos da
+# máquina. Esses ficam de fora.
+#
+# O tasks.json é a exceção: ele é a interface do time com o workspace
+# (simular, buildar, subir o agente, lançar missão) e é versionado de
+# propósito, aqui na raiz, que é onde o VS Code lê. Antes ele vivia no repo
+# meta e era copiado com `cp -r` para a raiz — a cópia derivava, e acabar com
+# isso foi metade do motivo da reorganização. Se ele voltar a ser ignorado, a
+# derivação volta junto.
+.vscode/*
+!.vscode/tasks.json
