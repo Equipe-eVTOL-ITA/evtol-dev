@@ -62,7 +62,18 @@
             "type": "shell",
             "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/simulate.sh\" \"${M#*:}\"",
             "problemMatcher": [],
-            "presentation": { "panel": "dedicated", "group": "sim" }
+            "presentation": {
+                // Sem "group": com ele, o VS Code junta as tasks num unico
+                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
+                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
+                // propria ABA -- da para alternar e ler uma de cada vez.
+                //
+                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
+                // de abrir uma nova a cada execucao.
+                "panel": "dedicated",
+                "clear": true,
+                "showReuseMessage": false
+            }
         },
         {
             "label": "sim: agente DDS",
@@ -72,7 +83,18 @@
             // so para nao precisar de mais uma pergunta.
             "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/agent.sh\"",
             "problemMatcher": [],
-            "presentation": { "panel": "dedicated", "group": "sim" }
+            "presentation": {
+                // Sem "group": com ele, o VS Code junta as tasks num unico
+                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
+                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
+                // propria ABA -- da para alternar e ler uma de cada vez.
+                //
+                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
+                // de abrir uma nova a cada execucao.
+                "panel": "dedicated",
+                "clear": true,
+                "showReuseMessage": false
+            }
         },
         {
             "label": "sim: ponte de imagem",
@@ -80,15 +102,39 @@
             "type": "shell",
             "command": "bash scripts/image_bridge.sh",
             "problemMatcher": [],
-            "presentation": { "panel": "dedicated", "group": "sim" }
+            "presentation": {
+                // Sem "group": com ele, o VS Code junta as tasks num unico
+                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
+                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
+                // propria ABA -- da para alternar e ler uma de cada vez.
+                //
+                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
+                // de abrir uma nova a cada execucao.
+                "panel": "dedicated",
+                "clear": true,
+                "showReuseMessage": false
+            }
         },
         {
             "label": "sim: rodar missão",
             "detail": "ros2 launch <pacote> simulation.launch.py",
             "type": "shell",
-            "command": "source scripts/ros_env.sh && ros2 launch ${input:pacoteMissao} simulation.launch.py",
+            // A opcao vem como "competicao:missao"; o ros2 launch so precisa do
+            // nome do pacote, entao descartamos a parte antes do ":".
+            "command": "P='${input:pacoteMissao}'; source scripts/ros_env.sh && ros2 launch \"${P#*:}\" simulation.launch.py",
             "problemMatcher": [],
-            "presentation": { "panel": "dedicated", "group": "sim" }
+            "presentation": {
+                // Sem "group": com ele, o VS Code junta as tasks num unico
+                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
+                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
+                // propria ABA -- da para alternar e ler uma de cada vez.
+                //
+                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
+                // de abrir uma nova a cada execucao.
+                "panel": "dedicated",
+                "clear": true,
+                "showReuseMessage": false
+            }
         },
         {
             "label": "sim: parar tudo",
@@ -127,7 +173,7 @@
             "label": "voo: ground station",
             "detail": "Sobe a estação de solo de uma missão",
             "type": "shell",
-            "command": "bash scripts/ground_station.sh ${input:pacoteMissao}",
+            "command": "P='${input:pacoteMissao}'; bash scripts/ground_station.sh \"${P#*:}\"",
             "problemMatcher": []
         },
         {
@@ -179,19 +225,17 @@
         },
         {
             "id": "pacoteMissao",
-            "description": "Pacote da missão",
+            "description": "Missão (competição:missão)",
             "type": "pickString",
             "options": [
-                "audio_alert",
-                "cbr2025_fase4",
-                "fase1",
-                "mission_1",
-                "mission_1_H",
-                "mission_2",
-                "mission_3",
-                "mission_teste"
+                "cbr2026:fase1",
+                "sae2026:mission_1",
+                "sae2026:mission_1_H",
+                "sae2026:mission_2",
+                "sae2026:mission_3",
+                "sae2026:mission_teste"
             ],
-            "default": "mission_1"
+            "default": "sae2026:mission_1"
         }
     ]
 }

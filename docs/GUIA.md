@@ -682,8 +682,18 @@ Qualificando, a pergunta da competição desaparece: cada opção já carrega a 
 pertence, e **nenhuma combinação inválida existe na lista**. Uma pergunta a
 menos, e o erro deixa de ser possível em vez de ser validado.
 
-O pacote da missão continua sem qualificar — o `ros2 launch` acha o pacote pelo
-nome, já compilado, sem precisar saber de onde veio.
+A lista de **missões** também é qualificada, e só mostra pacotes que têm
+`launch/simulation.launch.py` — que é exatamente o que a task executa. Antes ela
+misturava pacotes de apoio (`audio_alert`) e de outros projetos que estão no
+`src/` (`cbr2025_fase4`); escolher um deles dava um erro do `ros2 launch` sem
+explicar por que aquilo estava na lista.
+
+#### Cada task abre na sua própria aba
+
+As tasks de simulação **não** compartilham painel. Com quatro processos falando
+ao mesmo tempo num terminal dividido, não dá para ler nenhum. Cada uma abre numa
+aba própria — dá para alternar e ler uma de cada vez — e reusa sempre a mesma
+aba a cada execução, em vez de acumular terminais.
 
 > Não edite o bloco `inputs` manualmente: a próxima sincronização sobrescreve.
 > O resto do arquivo (as tasks) é escrito à mão e preservado pelo script.
