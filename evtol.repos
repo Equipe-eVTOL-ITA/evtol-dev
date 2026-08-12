@@ -82,6 +82,20 @@ repositories:
     url: https://github.com/Equipe-eVTOL-ITA/sae2026.git
     version: v0.1.0   # tagged from the jetson deployment branch
 
+  cbr2026:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
+    version: v0.1.0   # fase 1 completa
+    # Estava faltando neste manifesto embora ja fosse o repositorio de trabalho
+    # da CBR: quem montasse o workspace so a partir daqui nao teria a fase 1 no
+    # src/, e o `new_mission.sh` criaria fases num repositorio que o manifesto
+    # nao conhece.
+    #
+    # E o unico consumidor de vision_geometry + stdstates + cv_nodes ao mesmo
+    # tempo, entao o CI dele e o unico lugar onde um repin que quebre a missao
+    # aparece. O CI de cada biblioteca prova que ELA compila, nao que a missao
+    # continua compilando com ela.
+
   # ---------- External ROS 2 dependencies ----------
   px4_msgs:
     type: git
