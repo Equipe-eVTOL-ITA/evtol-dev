@@ -1,126 +1,196 @@
+// =============================================================================
+// Tasks do workspace eVTOL ITA
+// =============================================================================
+//
+// Ctrl+Shift+P -> "Tasks: Run Task", ou Ctrl+Shift+B para compilar.
+//
+// As tasks sao agrupadas por prefixo, entao a lista aparece ordenada:
+//     build            compilar
+//     sim: ...         simulacao
+//     voo: ...         coisas de voo real
+//     doctor           verificar o ambiente
+//
+// O BLOCO "inputs" NO FIM DESTE ARQUIVO E GERADO. Nao edite a mao:
+//
+//     python3 scripts/sync_tasks.py
+//
+// O VS Code so aceita lista fixa nos campos de entrada, e lista escrita a mao
+// envelhece -- a versao anterior oferecia so `sae2026` e `mission_1`, entao
+// quem criasse a cbr2026 com a fase1 nao a encontrava aqui. O sincronizador
+// deriva as listas do que existe em src/: competicoes (quem tem
+// scripts/simulate.sh), mundos (o bloco `case` de cada simulate.sh) e pacotes
+// (colcon list). O setup.sh e o new_mission.sh o chamam sozinhos.
+//
+// O resto do arquivo (as tasks) e escrito a mao e preservado pelo script.
+// =============================================================================
 {
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "simulate",
-            "detail": "Launch PX4 SITL + Gazebo",
+            "label": "build",
+            "detail": "Compila um pacote (ou 'all' / 'deps') — Ctrl+Shift+B",
             "type": "shell",
-            "command": "bash src/${input:competition}/scripts/simulate.sh ${input:sim_world}",
+            "command": "bash src/${input:competicao}/scripts/build.sh ${input:alvoBuild}",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": "$gcc",
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+
+        {
+            "label": "sim: iniciar",
+            "detail": "PX4 + Gazebo, agente DDS e ponte de imagem, de uma vez",
+            "dependsOn": [ "sim: PX4 + Gazebo", "sim: agente DDS", "sim: ponte de imagem" ],
             "problemMatcher": []
         },
         {
-            "label": "agent",
-            "detail": "Launch Micro XRCE-DDS Agent",
-            "type": "shell",
-            "command": "bash src/${input:competition}/scripts/agent.sh",
-            "problemMatcher": []
-        },
-        {
-            "label": "image bridge",
-            "detail": "Launch ros_gz_image bridge (Gazebo camera → ROS2)",
-            "type": "shell",
-            "command": "bash scripts/image_bridge.sh",
-            "problemMatcher": []
-        },
-        {
-            "label": "simulation start",
-            "detail": "Launch simulation + DDS agent + image bridge (all at once)",
+            "label": "sim: iniciar com missão",
+            "detail": "O mesmo que 'sim: iniciar', e já sobe a missão junto",
             "dependsOn": [
-                "simulate",
-                "agent",
-                "image bridge"
+                "sim: PX4 + Gazebo",
+                "sim: agente DDS",
+                "sim: ponte de imagem",
+                "sim: rodar missão"
             ],
             "problemMatcher": []
         },
         {
-            "label": "build",
-            "detail": "Build workspace packages",
+            "label": "sim: PX4 + Gazebo",
+            "detail": "Sobe o simulador num mundo da competição",
             "type": "shell",
-            "command": "bash src/${input:competition}/scripts/build.sh ${input:buildTarget}",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": "$gcc"
+            "command": "bash src/${input:competicao}/scripts/simulate.sh ${input:mundo}",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "group": "sim" }
         },
         {
-            "label": "mission launch",
-            "detail": "Launch a mission FSM via ros2 launch",
+            "label": "sim: agente DDS",
+            "detail": "Micro XRCE-DDS Agent — ponte PX4 ↔ ROS 2",
             "type": "shell",
-            "command": "source scripts/ros_env.sh && ros2 launch ${input:missionPackage} simulation.launch.py",
-            "problemMatcher": []
+            "command": "bash src/${input:competicao}/scripts/agent.sh",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "group": "sim" }
         },
         {
-            "label": "gazebo kill",
-            "detail": "Kill all simulation processes (PX4 + Gazebo)",
+            "label": "sim: ponte de imagem",
+            "detail": "ros_gz_image — câmeras do Gazebo → tópicos ROS 2",
             "type": "shell",
-            "command": "rm -rfv /tmp/px4* || true && pkill -9 px4 || true && pkill -9 -f 'gz sim' || true",
+            "command": "bash scripts/image_bridge.sh",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "group": "sim" }
+        },
+        {
+            "label": "sim: rodar missão",
+            "detail": "ros2 launch <pacote> simulation.launch.py",
+            "type": "shell",
+            "command": "source scripts/ros_env.sh && ros2 launch ${input:pacoteMissao} simulation.launch.py",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "group": "sim" }
+        },
+        {
+            "label": "sim: parar tudo",
+            "detail": "Encerra PX4, Gazebo e o agente DDS, e limpa /tmp/px4*",
+            "type": "shell",
+            // O agente tambem precisa morrer: se ele sobrevive, a proxima
+            // simulacao encontra a porta 8888 ocupada e o PX4 nao conecta.
+            "command": "pkill -x px4; pkill -f 'gz sim'; pkill -x MicroXRCEAgent; rm -rf /tmp/px4*; echo 'simulação encerrada'",
+            "problemMatcher": [],
             "presentation": {
-                "echo": true,
-                "reveal": "never",
-                "revealProblems": "onProblem",
-                "focus": false,
                 "panel": "dedicated",
-                "showReuseMessage": false,
-                "clear": false,
-                "close": true
-            },
-            "problemMatcher": []
+                "reveal": "silent",
+                "close": true,
+                "showReuseMessage": false
+            }
         },
+
         {
-            "label": "ground station",
-            "detail": "Launch Ground Station",
+            "label": "doctor",
+            "detail": "Confere se esta máquina bate com o perfil de ambiente",
             "type": "shell",
-            "command": "bash scripts/ground_station.sh ${input:missionPackage}",
+            "command": "./doctor.sh",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "tasks: sincronizar",
+            "detail": "Atualiza as listas destas tasks a partir do que existe em src/",
+            "type": "shell",
+            "command": "python3 scripts/sync_tasks.py",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+
+        {
+            "label": "voo: ground station",
+            "detail": "Sobe a estação de solo de uma missão",
+            "type": "shell",
+            "command": "bash scripts/ground_station.sh ${input:pacoteMissao}",
             "problemMatcher": []
         },
         {
-            "label": "fechar garra",
-            "detail": "Acionar servo para fechar a garra",
+            "label": "voo: fechar garra",
+            "detail": "Aciona o servo da garra (GPIO da Jetson)",
             "type": "shell",
             "command": "bash scripts/fechar_garra.sh",
             "problemMatcher": []
         }
     ],
+
     "inputs": [
         {
-            "id": "competition",
-            "description": "Choose competition",
+            "id": "competicao",
+            "description": "Competição",
             "type": "pickString",
             "options": [
+                "cbr2026",
+                "cm204-evtol",
                 "sae2026"
             ],
             "default": "sae2026"
         },
         {
-            "id": "sim_world",
-            "description": "Choose Gazebo world",
+            "id": "mundo",
+            "description": "Mundo do Gazebo (tem que existir na competição escolhida)",
             "type": "pickString",
             "options": [
+                "casa1",
+                "default",
+                "fase1",
                 "sae1",
                 "sae2",
-                "sae3",
-                "default"
+                "sae3"
             ],
             "default": "sae1"
         },
         {
-            "id": "buildTarget",
-            "description": "Which targets to build?",
+            "id": "alvoBuild",
+            "description": "Alvo do build",
             "type": "pickString",
             "options": [
                 "all",
                 "deps",
-                "mission_1"
+                "audio_alert",
+                "cbr2025_fase4",
+                "fase1",
+                "mission_1",
+                "mission_1_H",
+                "mission_2",
+                "mission_3",
+                "mission_teste"
             ],
             "default": "all"
         },
         {
-            "id": "missionPackage",
-            "description": "Which mission package to launch?",
+            "id": "pacoteMissao",
+            "description": "Pacote da missão",
             "type": "pickString",
             "options": [
-                "mission_1"
+                "audio_alert",
+                "cbr2025_fase4",
+                "fase1",
+                "mission_1",
+                "mission_1_H",
+                "mission_2",
+                "mission_3",
+                "mission_teste"
             ],
             "default": "mission_1"
         }

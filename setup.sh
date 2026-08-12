@@ -180,6 +180,14 @@ fi
 echo "==> Compilando (colcon build --symlink-install --executor sequential)"
 colcon build --symlink-install --executor sequential
 
+# Atualiza as listas das tasks do VS Code com as competições e missões que
+# acabaram de chegar em src/. Sem isto, quem usa as tasks não enxerga uma
+# competição nova.
+if [[ -f "$meta_dir/scripts/sync_tasks.py" ]]; then
+    python3 "$meta_dir/scripts/sync_tasks.py" || \
+        echo "    AVISO: não consegui sincronizar as tasks do VS Code."
+fi
+
 # Registra o perfil só depois que tudo deu certo, para que .evtol-profile não
 # aponte para um perfil que nunca chegou a funcionar nesta máquina.
 echo "$profile" > "$ws_root/.evtol-profile"
