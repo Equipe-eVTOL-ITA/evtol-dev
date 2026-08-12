@@ -1,0 +1,120 @@
+# =============================================================================
+# Base comum dos perfis Humble — NÃO é um perfil selecionável
+# =============================================================================
+# O "_" na frente do nome tira este arquivo da lista do `./doctor.sh --list`.
+# Ele existe para ser herdado, com `extends: _common-humble`.
+#
+# POR QUE HERANÇA
+# ---------------
+# As máquinas do time diferem em pouco e coincidem em muito. Duplicar as ~300
+# linhas de justificativa medida entre os perfis garantiria que eles
+# divergissem — e divergência silenciosa entre máquinas é exatamente o problema
+# que este arquivo existe para resolver. É o mesmo argumento que tirou o
+# `PidController` de nove cópias.
+#
+# Aqui fica só o que vale para TODA máquina que roda ROS 2 Humble no time. O
+# que distingue uma máquina da outra fica no perfil dela, e a diferença cabe
+# na tela.
+# =============================================================================
+
+os:
+  distributor_id: Ubuntu
+  release: "22.04"
+  python: "3.10"
+
+ros:
+  distro: humble
+
+pip:
+  # Roda env/cv_api_contract.py: confere que os símbolos do cv2 que o NOSSO
+  # código chama existem de fato. É a rede de segurança para quando as versões
+  # divergirem por motivo legítimo entre perfis (Python 3.10 vs 3.12, OpenCV
+  # com CUDA do JetPack na Jetson).
+  # Testa DE VERDADE se a maquina instala um pacote ament_python, em vez de
+  # so conferir numeros de versao. A restricao real e uma RELACAO entre
+  # setuptools e packaging, que nenhum pin isolado expressa. Veja
+  # env/build_smoke.py.
+  check_python_build: true
+
+  check_opencv_api: true
+
+  required:
+    # ---------------------------------------------------------------------
+    # setuptools: TEM que ser < 80.
+    #
+    # O `colcon build --symlink-install` — o comando de build documentado no
+    # SETUP.md, usado em todos os build.sh — instala pacotes ament_python
+    # chamando `setup.py develop --editable`. O setuptools 80.0.0 removeu a
+    # opção `--editable`. Com >= 80 o build falha assim:
+    #
+    #     error: option --editable not recognized
+    #
+    # e o colcon aborta: o pacote falha e os demais nem chegam a ser
+    # processados. Ou seja: com setuptools novo, um membro novo seguindo o
+    # SETUP.md ao pé da letra NÃO consegue compilar o workspace.
+    #
+    # A fronteira foi determinada empiricamente (2026-08-09), rodando o
+    # comando real do colcon em venvs isolados:
+    #     59.6.0 OK | 70.0.0 OK | 75.6.0 OK | 79.0.0 OK
+    #     80.0.0 FALHA | 83.0.0 FALHA
+    #
+    # Pinamos a faixa e não um valor exato porque `<80` vale igualmente no
+    # Ubuntu 22.04/Python 3.10 e no 24.04/Python 3.12 — o SETUP.md pinava
+    # `setuptools==59.6.0`, que é a versão de sistema do 22.04 e não funciona
+    # no Python 3.12 do perfil rpi-jazzy.
+    #
+    # ATENÇÃO: este pin NÃO basta sozinho. Veja `packaging` logo abaixo.
+    setuptools: "<80"
+
+    # ---------------------------------------------------------------------
+    # packaging: >= 23, e este pin existe por causa do setuptools.
+    #
+    # A partir do setuptools 71, ele chama
+    # `packaging.utils.canonicalize_version(..., strip_trailing_zero=...)`,
+    # parâmetro que só existe no packaging >= 22 (e a compatibilidade só fica
+    # completa no 23). O Ubuntu 22.04 traz `python3-packaging` **21.3** pelo
+    # apt; o 24.04 traz 24.0.
+    #
+    # Resultado numa máquina 22.04 sem esse pin: `colcon build` morre no
+    # primeiro pacote ament_python com
+    #
+    #     TypeError: canonicalize_version() got an unexpected keyword
+    #     argument 'strip_trailing_zero'
+    #
+    # e o doctor passava, porque conferia setuptools e não packaging. Foi
+    # exatamente assim que quebrou numa máquina do time enquanto na máquina de
+    # quem escreveu o pin havia um packaging novo instalado por acaso.
+    #
+    # Medido em venvs isolados, rodando o comando real do colcon:
+    #     setuptools <= 70.3.0  + packaging 21.3  -> OK
+    #     setuptools 71 a 79    + packaging 21.3  -> FALHA
+    #     setuptools 71 a 79    + packaging >= 23 -> OK
+    #     setuptools >= 80      + qualquer        -> FALHA (--editable)
+    #
+    # A alternativa seria pinar `setuptools <71` e viver com o packaging do
+    # apt. Preferimos subir o packaging: mantém o setuptools mais próximo do
+    # que o resto do ecossistema usa, e o teste funcional acima cobre a
+    # relação de qualquer jeito.
+    packaging: ">=23"
+
+    # ---------------------------------------------------------------------
+    # numpy: TEM que ser < 2.
+    #
+    # O `cv_bridge` do ROS 2 Humble é uma extensão Boost.Python compilada
+    # contra a ABI do numpy 1.x. Com numpy 2 instalado, `imgmsg_to_cv2` — a
+    # PRIMEIRA coisa que todo nó de visão faz com uma imagem recebida — falha:
+    #
+    #     SystemError: <Boost.Python.function object ...> returned a result
+    #     with an exception set
+    #
+    # Ou seja: com numpy 2, TODOS os detectores estão mortos, e a mensagem de
+    # erro não menciona numpy em lugar nenhum.
+    #
+    # Verificado nesta máquina (2026-08-09), mesmo cv2, só trocando o numpy:
+    #     numpy 1.26.4 -> imgmsg_to_cv2 OK
+    #     numpy 2.2.6  -> SystemError
+    #
+    # Vale para os dois distros: o Ubuntu 24.04 (Jazzy) também traz numpy
+    # 1.26.4 como versão de sistema.
+    numpy: ">=1.24,<2"
+

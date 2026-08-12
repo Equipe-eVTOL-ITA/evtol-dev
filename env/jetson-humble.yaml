@@ -1,0 +1,73 @@
+# =============================================================================
+# Perfil de ambiente: jetson-humble
+# =============================================================================
+# Computador EMBARCADO no drone — fases 1 e 2 da CBR.
+#
+# Verifique a máquina contra este perfil com:
+#     ./doctor.sh --profile jetson-humble
+#
+# -----------------------------------------------------------------------------
+# ESTE PERFIL ESTÁ INCOMPLETO. LEIA ANTES DE CONFIAR NELE.
+# -----------------------------------------------------------------------------
+# O `desktop-humble` foi capturado de uma máquina comprovadamente funcional:
+# cada versão ali é um valor observado, e os comentários registram a medição.
+#
+# Este aqui NÃO foi. Ele declara apenas o que se pode afirmar sem ver a Jetson:
+# que ela roda Humble, que não roda simulação, e que não precisa de mediapipe.
+# Falta capturar na máquina real:
+#
+#   - `apt`: o que de fato está instalado. O bloco do Gazebo do desktop NÃO se
+#     aplica: a Jetson voa o drone, não simula. Mas o bridge do PX4, o
+#     Micro-XRCE-DDS-Agent e as dependências de câmera precisam ser listados.
+#   - `commands`: quais binários têm de estar no PATH.
+#   - `git_repos`: quais repositórios externos existem e em que tag.
+#   - `os`: herdado como Ubuntu 22.04 / Python 3.10. Confirme — depende da
+#     versão do JetPack, e o JetPack 5 traz Ubuntu 20.04, que NÃO serve ao
+#     Humble binário.
+#
+# Enquanto isso não for feito, o `doctor` sobre este perfil confirma pouco.
+# Um perfil que afirma menos do que sabe é honesto; um que afirma o que não
+# mediu é pior que perfil nenhum, porque passa a exigir coisas falsas.
+#
+# Para capturar: rode na Jetson e cole o resultado aqui.
+#     dpkg-query -W -f='${binary:Package} ${Version}\n' | grep -E 'ros-humble|gz-|px4'
+# =============================================================================
+
+extends: _common-humble
+
+profile: jetson-humble
+description: Computador embarcado (fases 1 e 2) — INCOMPLETO, ver cabecalho
+simulation: false
+
+pip:
+  required:
+    # -----------------------------------------------------------------------
+    # opencv-python, e NÃO o contrib.
+    #
+    # É o inverso do `desktop-humble`, e a diferença é deliberada.
+    #
+    # O `contrib` só entrou no perfil de solo porque o `mediapipe` depende dele,
+    # e o mediapipe só existe para o reconhecimento de gestos — que roda em
+    # terra, nas fases 3 e 4, e não aqui.
+    #
+    # Os dois pacotes instalam o mesmo módulo `cv2` e não podem coexistir. Numa
+    # máquina embarcada, arrastar o mediapipe junto (com jax, jaxlib, scipy,
+    # matplotlib e sentencepiece atrás) seria pagar disco, tempo de instalação
+    # e superfície de atualização por algo que nunca vai ser importado.
+    #
+    # Mesma versão do perfil de solo, mesma wheel abi3 (cp37), então o `cv2` é
+    # o MESMO nos dois lados. O que muda é só o conjunto de módulos extras.
+    opencv-python: "4.11.0.86"
+
+  forbidden:
+    opencv-contrib-python: >-
+      Conflita com opencv-python: os dois instalam o mesmo módulo `cv2` e o que
+      vale passa a depender da ordem de instalação. No embarcado usamos o
+      opencv-python puro, porque o `contrib` só é necessário para o mediapipe,
+      que roda na estação de solo.
+
+    mediapipe: >-
+      Nao e usado no embarcado. As fases que dependem de gestos (3 e 4) rodam
+      com processamento em terra. Instalado aqui, ele arrasta jax, jaxlib,
+      scipy, matplotlib, sentencepiece e sounddevice, e obriga o
+      opencv-contrib-python, que conflita com o opencv-python acima.
