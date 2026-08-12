@@ -97,13 +97,31 @@ def pacotes(comp: str) -> list[str]:
 
 
 def montar_inputs() -> list[dict]:
+    """Monta os inputs do tasks.json a partir do que existe em src/.
+
+    Opcoes de mundo e de alvo de build sao QUALIFICADAS: `competicao:valor`.
+
+    O motivo e uma limitacao do VS Code -- um input nao consegue depender da
+    resposta de outro. Com um input separado para a competicao, era possivel
+    escolher `cbr2026` e depois receber `mission_1` na lista de alvos, que so
+    existe no sae2026. A lista mentia.
+
+    Qualificando, a pergunta da competicao deixa de existir: cada opcao ja
+    carrega a competicao a que pertence, e nenhuma combinacao invalida pode
+    ser montada. Uma pergunta a menos, e nenhuma resposta errada possivel.
+    """
     comps = competicoes()
-    todos_mundos: list[str] = []
+
+    mundos_q: list[str] = []
+    alvos_q: list[str] = []
     todos_pacotes: list[str] = []
     for c in comps:
-        todos_mundos += mundos(c)
-        todos_pacotes += pacotes(c)
-    todos_mundos = sorted(set(todos_mundos))
+        mundos_q += [f"{c}:{m}" for m in mundos(c)]
+        pkgs = pacotes(c)
+        alvos_q += [f"{c}:all", f"{c}:deps"] + [f"{c}:{p}" for p in pkgs]
+        todos_pacotes += pkgs
+    mundos_q = sorted(set(mundos_q))
+    alvos_q = sorted(set(alvos_q))
     todos_pacotes = sorted(set(todos_pacotes))
 
     def pick(id_, desc, opts, default=None):
@@ -118,10 +136,11 @@ def montar_inputs() -> list[dict]:
 
     return [
         # O default e so o valor pre-selecionado; qualquer opcao da lista serve.
-        pick("competicao", "Competição", comps or ["sae2026"], "sae2026"),
-        pick("mundo", "Mundo do Gazebo (tem que existir na competição escolhida)",
-             todos_mundos, "sae1"),
-        pick("alvoBuild", "Alvo do build", ["all", "deps"] + todos_pacotes, "all"),
+        pick("mundo", "Mundo do Gazebo (competição:mundo)", mundos_q, "sae2026:sae1"),
+        pick("alvoBuild", "O que compilar (competição:alvo)", alvos_q, "sae2026:all"),
+        # O pacote da missao NAO e qualificado: o `ros2 launch` e o
+        # `ground_station.sh` acham o pacote pelo nome, ja compilado, sem
+        # precisar saber de que competicao ele veio.
         pick("pacoteMissao", "Pacote da missão", todos_pacotes, "mission_1"),
     ]
 

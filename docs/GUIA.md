@@ -664,6 +664,27 @@ Ele deriva as listas do que existe em `src/`: competições (quem tem
 prática você nunca precisa rodá-lo à mão — só depois de criar uma competição ou
 um mundo novo à mão.
 
+#### Por que as opções vêm como `competição:valor`
+
+Mundo e alvo de build aparecem assim:
+
+```
+cbr2026:fase1        sae2026:mission_1        sae2026:all
+cbr2026:default      sae2026:sae1             cbr2026:deps
+```
+
+O VS Code **não permite que uma lista dependa da resposta de outra**. Enquanto
+havia uma pergunta separada para a competição, dava para escolher `cbr2026` e
+receber `mission_1` entre os alvos — que só existe no `sae2026`. A lista mentia,
+e o build falhava depois.
+
+Qualificando, a pergunta da competição desaparece: cada opção já carrega a que
+pertence, e **nenhuma combinação inválida existe na lista**. Uma pergunta a
+menos, e o erro deixa de ser possível em vez de ser validado.
+
+O pacote da missão continua sem qualificar — o `ros2 launch` acha o pacote pelo
+nome, já compilado, sem precisar saber de onde veio.
+
 > Não edite o bloco `inputs` manualmente: a próxima sincronização sobrescreve.
 > O resto do arquivo (as tasks) é escrito à mão e preservado pelo script.
 
