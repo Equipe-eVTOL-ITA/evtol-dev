@@ -38,7 +38,15 @@ repositories:
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.2.0   # base_detector real, sobre a classe Detector
+    version: v0.2.1   # modulo Python unico para o base_detector
+    # A v0.2.0 nomeia o modulo interno do base_detector como `base_detector`,
+    # igual ao pacote. O console script e inequivoco, mas o import dentro dele
+    # resolve pelo PYTHONPATH, e o itajuba_cv_utils -- que NAO esta neste
+    # manifesto, mas esta no src/ das maquinas do time -- expoe um modulo de
+    # topo com o mesmo nome e vence. O `ros2 run base_detector base_detector`
+    # subia OUTRO detector, sem erro nenhum, e a fase 1 varria a arena inteira
+    # sem ver base nenhuma.
+    #
     # A v0.1.2 traz o base_detector como esqueleto quebrado: um script solto
     # que lia base.png do disco, sem no ROS, sem dependencias declaradas e com
     # o entry point apontando para um main() inexistente. Compilava.
