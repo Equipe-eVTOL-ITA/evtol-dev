@@ -213,13 +213,68 @@ pip:
     #
     # Validado no 4.11.0.86: detecção de marcador ArUco ponta a ponta e
     # cv_bridge.imgmsg_to_cv2 com numpy 1.26.4.
-    opencv-python: "4.11.0.86"
+    #
+    # POR QUE `contrib` E NÃO O `opencv-python` PURO.
+    #
+    # Os dois instalam o mesmo módulo `cv2` e não podem coexistir — quem vale
+    # passa a depender da ordem de instalação. Até a fase 1 o workspace usava o
+    # `opencv-python` e listava o `contrib` como proibido.
+    #
+    # A fase 3 inverte isso, porque o `mediapipe` DEPENDE de
+    # `opencv-contrib-python` (verificado no metadado de todas as versões com
+    # wheel para aarch64). Tentar manter o `opencv-python` significaria ter os
+    # dois instalados, que é exatamente o cenário que a proibição existe para
+    # evitar.
+    #
+    # A troca é segura: o `contrib` é um superconjunto — mesma versão, mesma
+    # wheel abi3 (cp37, serve ao Python 3.10 do Humble e ao 3.12 do Jazzy),
+    # mesmos módulos, mais os extras. Nenhum código do time perde nada.
+    #
+    # Resolução verificada em venv limpo (2026-08-12):
+    #     mediapipe==0.10.18 + opencv-contrib-python==4.11.0.86 + numpy>=1.24,<2
+    #     -> numpy-1.26.4, sem conflito
+    opencv-contrib-python: "4.11.0.86"
+
+    # ---------------------------------------------------------------------
+    # mediapipe: 0.10.18. A versão NÃO é arbitrária.
+    #
+    # Duas condições precisam valer ao mesmo tempo, e só uma faixa estreita de
+    # versões satisfaz as duas:
+    #
+    #   1. TER WHEEL PARA aarch64. A Jetson Orin Nano e a Raspberry Pi são
+    #      aarch64, e é nelas que a fase 3 voa.
+    #   2. FIXAR numpy < 2 ELA PRÓPRIA. Se o mediapipe deixa o numpy solto, uma
+    #      reinstalação futura pode trazer o numpy 2 e matar o cv_bridge — com
+    #      o SystemError sem menção a numpy descrito acima.
+    #
+    # Medido no PyPI (2026-08-12):
+    #
+    #     versao    aarch64?  numpy
+    #     1.0.0     SIM       solto      <- arrisca puxar numpy 2
+    #     0.10.35   nao       solto
+    #     0.10.21   nao       <2         <- roda no desktop, FALHA no drone
+    #     0.10.20   nao       <2
+    #     0.10.18   SIM       <2         <- a mais nova que serve
+    #     0.10.15   SIM       <2
+    #
+    # A 0.10.21 é a armadilha: passaria em qualquer teste feito na máquina de
+    # desenvolvimento e só falharia ao instalar no drone.
+    #
+    # Wheels da 0.10.18: cp39, cp310, cp311, cp312 para manylinux x86_64 E
+    # aarch64 — cobre desktop, Jetson e Raspberry, nos dois distros.
+    #
+    # ATENÇÃO ao peso: o mediapipe arrasta jax, jaxlib, scipy, matplotlib,
+    # sentencepiece e sounddevice. Numa Raspberry isso é significativo em disco
+    # e em tempo de instalação. Instale só nos perfis que rodam gestos.
+    mediapipe: "0.10.18"
 
   forbidden:
-    opencv-contrib-python: >-
-      Conflita com opencv-python: os dois instalam o mesmo módulo `cv2` e o que
-      vale passa a depender da ordem de instalação. Escolha UM. Se precisar dos
-      módulos contrib, use apenas opencv-contrib-python e remova opencv-python.
+    opencv-python: >-
+      Conflita com opencv-contrib-python: os dois instalam o mesmo módulo `cv2`
+      e o que vale passa a depender da ordem de instalação. O workspace usa o
+      `contrib` porque o mediapipe (fase 3) depende dele, e porque o contrib é
+      superconjunto — trocar não custa nada a quem não usa os extras.
+      Se este pacote estiver instalado junto com o contrib, DESINSTALE-O.
 
 # -----------------------------------------------------------------------------
 # Binários que precisam estar no PATH
