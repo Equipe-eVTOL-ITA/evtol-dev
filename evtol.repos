@@ -58,7 +58,12 @@ repositories:
   vision_geometry:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/vision_geometry.git
-    version: v0.1.0
+    version: v0.1.1   # guardas contra erro de escala no PnP
+    # A v0.1.0 aceita qualquer resultado do PnP. Uma base saindo do quadro
+    # encolhe na imagem, e o PnP le isso como distancia maior: medido em SITL,
+    # uma caixa de 63 px produziu um alvo a 6,6 m e dez metros ABAIXO do solo.
+    # A missao perseguia esse fantasma para fora da arena, sem erro nenhum.
+    #
     # Projecao pixel -> mundo, header-only e SEM ROS: so OpenCV e Eigen. Em
     # 2025 esta matematica vivia dentro do no ROS de cada fase (493 linhas
     # replicadas em quatro), o que a tornava impossivel de testar sem subir
@@ -73,10 +78,16 @@ repositories:
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
-    version: v0.2.0   # WaypointList, PrecisionAlign, PrecisionLanding, ReturnHome
-    # Muda a superficie publica, dai o bump de minor. A v0.1.1 corrigiu a chave
-    # rosdep do Eigen (Eigen3 -> eigen) e continua valida para quem so precisa
-    # de arming/takeoff/goto.
+    version: v0.2.1   # TakeoffState nao reancora o referencial na redecolagem
+    # Na v0.2.0 o TakeoffState chama setHomePosition sempre, movendo a origem do
+    # mundo para a posicao atual. Toda missao que pousa e redecola perde as
+    # coordenadas ja guardadas -- bases visitadas, grade, casa -- sem erro
+    # nenhum, e volta a pousar na mesma base. A v0.2.1 poe isso atras de uma
+    # flag cujo padrao preserva o comportamento antigo.
+    #
+    # A v0.2.0 acrescentou WaypointList, PrecisionAlign, PrecisionLanding e
+    # ReturnHome. A v0.1.1 corrigiu a chave rosdep do Eigen (Eigen3 -> eigen) e
+    # continua valida para quem so precisa de arming/takeoff/goto.
 
   # ---------- Cross-cutting ----------
   telemetry_handler:
