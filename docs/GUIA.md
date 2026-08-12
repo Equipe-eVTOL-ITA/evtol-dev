@@ -340,7 +340,15 @@ cd ~/evtol/dev
 source scripts/ros_env.sh          # em todo shell novo
 ```
 
-**Simulação (três terminais):**
+**Simulação — pelas tasks do VS Code (recomendado):**
+
+| | |
+|---|---|
+| `Ctrl+Shift+B` | compila |
+| *Tasks: Run Task* → **sim: iniciar com missão** | sobe simulador, agente, ponte e missão |
+| *Tasks: Run Task* → **sim: parar tudo** | encerra tudo |
+
+**Pelo terminal (três terminais):**
 
 ```bash
 # T1 — PX4 + Gazebo
@@ -353,8 +361,6 @@ bash src/sae2026/scripts/agent.sh
 source scripts/ros_env.sh
 ros2 launch mission_1 simulation.launch.py
 ```
-
-Ou, no VSCode: `Ctrl+Shift+P` → *Tasks: Run Task* → **simulation start**.
 
 **Compilar:**
 
@@ -603,29 +609,91 @@ O gerador já acerta os três.
 
 ### Passo 4 — Compilar e rodar
 
+Abra o workspace no VS Code (`code ~/evtol/dev`) e use as **tasks**. É o caminho
+recomendado: menos digitação, e cada processo ganha o seu terminal, nomeado.
+
+```
+Ctrl+Shift+B                      compila (task "build")
+Ctrl+Shift+P → Tasks: Run Task    a lista completa
+```
+
+Para rodar a fase que você acabou de criar, são **duas tasks**:
+
+| Ordem | Task | O que faz |
+|---|---|---|
+| 1 | **build** | escolha a competição e `fase1` |
+| 2 | **sim: iniciar com missão** | sobe PX4 + Gazebo, agente DDS, ponte de imagem **e** a missão |
+
+Cada uma pergunta a competição, o mundo e o pacote numa lista suspensa — e a
+`fase1` **já está lá**, porque o `new_mission.sh` atualizou as listas ao gerar o
+pacote.
+
+Para encerrar tudo: **sim: parar tudo**. Ela mata PX4, Gazebo e o agente DDS —
+o agente importa, porque se ele sobrevive a próxima simulação encontra a porta
+8888 ocupada e o PX4 não conecta.
+
+#### As tasks disponíveis
+
+| Task | Para quê |
+|---|---|
+| `build` | Compila `all`, `deps` ou um pacote. É a task padrão do `Ctrl+Shift+B`. |
+| `sim: iniciar` | PX4 + Gazebo, agente DDS e ponte de imagem |
+| `sim: iniciar com missão` | O mesmo, e já sobe a missão |
+| `sim: PX4 + Gazebo` · `sim: agente DDS` · `sim: ponte de imagem` · `sim: rodar missão` | As partes, para subir uma de cada vez ao depurar |
+| `sim: parar tudo` | Encerra tudo e limpa `/tmp/px4*` |
+| `doctor` | Verifica o ambiente |
+| `tasks: sincronizar` | Atualiza as listas suspensas |
+| `voo: ground station` · `voo: fechar garra` | Voo real |
+
+#### Por que as listas suspensas não envelhecem
+
+O VS Code só aceita **lista fixa** nos campos de entrada de uma task. Lista
+escrita à mão apodrece: a versão anterior deste arquivo oferecia apenas
+`sae2026` e `mission_1` — quem criasse a `cbr2026` com a `fase1` simplesmente
+não a encontrava, e voltava para o terminal.
+
+Por isso o bloco `inputs` do `.vscode/tasks.json` é **gerado**:
+
+```bash
+python3 scripts/sync_tasks.py     # ou a task "tasks: sincronizar"
+```
+
+Ele deriva as listas do que existe em `src/`: competições (quem tem
+`scripts/simulate.sh`), mundos (o bloco `case` de cada `simulate.sh`) e pacotes
+(`colcon list`). O `new_mission.sh` e o `setup.sh` o chamam sozinhos, então na
+prática você nunca precisa rodá-lo à mão — só depois de criar uma competição ou
+um mundo novo à mão.
+
+> Não edite o bloco `inputs` manualmente: a próxima sincronização sobrescreve.
+> O resto do arquivo (as tasks) é escrito à mão e preservado pelo script.
+
+#### Pelo terminal, se preferir
+
+As tasks são conveniência; por baixo são estes comandos. Vale conhecer, porque
+é o que você vai usar por SSH na Jetson, onde não há VS Code.
+
 ```bash
 cd ~/evtol/dev
 bash src/cbr2027/scripts/build.sh fase1
 ```
 
-Abra um **terminal novo** e:
+Depois, **três terminais**:
 
 ```bash
-cd ~/evtol/dev
+# T1 — PX4 + Gazebo
+bash src/cbr2027/scripts/simulate.sh fase1
+
+# T2 — ponte PX4 ↔ ROS 2
+bash src/cbr2027/scripts/agent.sh
+
+# T3 — a missão
 source scripts/ros_env.sh
-ros2 run fase1 fase1
+ros2 launch fase1 simulation.launch.py
 ```
 
-Terminal novo importa: o `install/setup.bash` precisa ser recarregado para o
-pacote novo aparecer.
-
-Simulação completa, três terminais:
-
-```bash
-bash src/cbr2027/scripts/simulate.sh fase1     # T1
-bash src/cbr2027/scripts/agent.sh              # T2
-source scripts/ros_env.sh && ros2 run fase1 fase1   # T3
-```
+> **Terminal novo importa.** O `install/setup.bash` só é lido quando você dá
+> `source`; um terminal aberto antes do build não enxerga o pacote novo. É a
+> causa mais comum de *"compilei mas o `ros2 run` não acha"*.
 
 ---
 
@@ -736,6 +804,8 @@ cd ~/evtol/dev && ./doctor.sh
 | `canonicalize_version() got an unexpected keyword argument` | `packaging` velho (21.3 do apt) com `setuptools >= 71`. `pip install --user 'packaging>=23'`. O doctor pega. |
 | `SystemError` no `imgmsg_to_cv2` | `numpy >= 2` com o `cv_bridge` do Humble. O doctor pega. |
 | Pacote compila mas o `ros2 run` não acha | Terminal antigo. Abra outro e `source scripts/ros_env.sh`. |
+| Competição ou missão nova não aparece nas tasks | Rode a task **tasks: sincronizar** (ou `python3 scripts/sync_tasks.py`). |
+| Simulação não conecta ao PX4 na segunda vez | Agente DDS ainda vivo segurando a porta 8888. Use a task **sim: parar tudo**. |
 | `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
 | Build falha só na sua máquina | Rode `./doctor.sh`; se passar, pode ser dependência não declarada — o CI mostra. |
 | Máquina trava durante o build | Falta de RAM. Veja a seção de swap no [SETUP.md](SETUP.md). |
