@@ -42,13 +42,37 @@ done
 ln -sf ~/PX4-gazebo-models/worlds/*.sdf ~/PX4-Autopilot/Tools/simulation/gz/worlds/
 ```
 
-A partir daí, atualizar os modelos é só:
+A partir daí, atualizar **modelos e mundos que já existiam** é só:
 
 ```bash
 git -C ~/PX4-gazebo-models pull
 ```
 
-Os symlinks continuam válidos — não é preciso refazer nada.
+Os symlinks apontam para os arquivos, então o conteúdo novo aparece sozinho.
+
+> **Mas arquivo NOVO não ganha symlink sozinho.** Os symlinks são criados uma
+> vez; se você (ou alguém) adicionar um mundo ou modelo ao repositório depois
+> disso, ele existe em `~/PX4-gazebo-models` e **não** dentro do PX4. O sintoma
+> é o PX4 falhar apontando para o lugar errado:
+>
+> ```
+> Unable to find or download file
+> ERROR [gz_bridge] Service call timed out. Check GZ_SIM_RESOURCE_PATH is set correctly.
+> ```
+>
+> A mensagem manda olhar o `GZ_SIM_RESOURCE_PATH`, mas a causa é o symlink que
+> falta. O `simulate.sh` dos templates confere isso antes de chamar o PX4 e
+> avisa com o comando pronto.
+>
+> **Depois de adicionar qualquer coisa nova, refaça os symlinks** — os passos 2
+> e 3 são idempotentes, pode rodar quantas vezes quiser:
+>
+> ```bash
+> for d in ~/PX4-gazebo-models/models/*/; do
+>     ln -sfn "$d" ~/PX4-Autopilot/Tools/simulation/gz/models/"$(basename "$d")"
+> done
+> ln -sf ~/PX4-gazebo-models/worlds/*.sdf ~/PX4-Autopilot/Tools/simulation/gz/worlds/
+> ```
 
 > A versão (commit) de `~/PX4-gazebo-models` é pinada em `env/<perfil>.yaml` e
 > conferida pelo `doctor.sh`. Se você atualizar o repositório, atualize o pin no

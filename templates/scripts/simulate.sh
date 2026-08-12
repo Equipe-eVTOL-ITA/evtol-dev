@@ -53,6 +53,55 @@ case "${1:-}" in
         ;;
 esac
 
+# ---------------------------------------------------------------------------
+# Confere que o mundo e o modelo existem ANTES de chamar o PX4.
+#
+# Sem isto, o PX4 falha com uma mensagem que aponta para o lugar errado:
+#
+#     Unable to find or download file
+#     ERROR [gz_bridge] Service call timed out. Check GZ_SIM_RESOURCE_PATH
+#     ERROR [init] gz_bridge failed to start and spawn model
+#
+# ...o que faz todo mundo ir mexer no GZ_SIM_RESOURCE_PATH, quando a causa
+# quase sempre e outra: o .sdf existe em ~/PX4-gazebo-models mas nao foi
+# symlinkado para dentro do PX4. Os symlinks sao feitos uma vez; arquivo novo
+# adicionado depois nao ganha symlink sozinho.
+# ---------------------------------------------------------------------------
+px4_gz="$HOME/PX4-Autopilot/Tools/simulation/gz"
+faltando=0
+
+if [[ ! -e "$px4_gz/worlds/$PX4_GZ_WORLD.sdf" ]]; then
+    echo "ERRO: mundo '$PX4_GZ_WORLD.sdf' nao encontrado em" >&2
+    echo "      $px4_gz/worlds/" >&2
+    if [[ -e "$HOME/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf" ]]; then
+        echo "      -> existe em ~/PX4-gazebo-models, so falta o symlink:" >&2
+        echo "         ln -sf ~/PX4-gazebo-models/worlds/$PX4_GZ_WORLD.sdf \\" >&2
+        echo "                $px4_gz/worlds/" >&2
+    else
+        echo "      -> nao existe nem em ~/PX4-gazebo-models. Crie o .sdf la." >&2
+    fi
+    faltando=1
+fi
+
+if [[ ! -e "$px4_gz/models/$PX4_SIM_MODEL" ]]; then
+    echo "ERRO: modelo '$PX4_SIM_MODEL' nao encontrado em" >&2
+    echo "      $px4_gz/models/" >&2
+    if [[ -e "$HOME/PX4-gazebo-models/models/$PX4_SIM_MODEL" ]]; then
+        echo "      -> existe em ~/PX4-gazebo-models, so falta o symlink:" >&2
+        echo "         ln -sfn ~/PX4-gazebo-models/models/$PX4_SIM_MODEL \\" >&2
+        echo "                 $px4_gz/models/$PX4_SIM_MODEL" >&2
+    else
+        echo "      -> nao existe nem em ~/PX4-gazebo-models. Crie o modelo la." >&2
+    fi
+    faltando=1
+fi
+
+if (( faltando )); then
+    echo >&2
+    echo "Veja docs/gazebo_models_setup.md." >&2
+    exit 1
+fi
+
 PX4_SYS_AUTOSTART=$PX4_SYS_AUTOSTART \
 PX4_GZ_MODEL_POSE=$PX4_GZ_MODEL_POSE \
 PX4_GZ_WORLD=$PX4_GZ_WORLD \
