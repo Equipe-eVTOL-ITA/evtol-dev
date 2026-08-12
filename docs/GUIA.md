@@ -680,6 +680,7 @@ cd ~/evtol/dev && ./doctor.sh
 | `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
 | Build falha só na sua máquina | Rode `./doctor.sh`; se passar, pode ser dependência não declarada — o CI mostra. |
 | Máquina trava durante o build | Falta de RAM. Veja a seção de swap no [SETUP.md](SETUP.md). |
+| `gz_bridge: Service call timed out. Check GZ_SIM_RESOURCE_PATH` | Quase sempre **não** é o `GZ_SIM_RESOURCE_PATH`: é um mundo ou modelo novo em `~/PX4-gazebo-models` sem symlink dentro do PX4. Refaça os symlinks — [gazebo_models_setup.md](gazebo_models_setup.md). |
 | Um pacote fica num estado esquisito | `rm -rf build/<pkg> install/<pkg>` e recompile. |
 
 ### Onde perguntar ao próprio workspace
