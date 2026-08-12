@@ -498,9 +498,11 @@ case "${1:-}" in
 ```
 
 Os mundos (`.sdf`) e modelos vivem no repositório
-[PX4-gazebo-models](https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models) e são
-instalados por symlink — veja [gazebo_models_setup.md](gazebo_models_setup.md).
-Se a competição tem arena nova, é lá que o `.sdf` entra.
+[PX4-gazebo-models](https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models). Basta
+cloná-lo em `~` — modelos são achados pelo `GZ_SIM_RESOURCE_PATH` e o
+`simulate.sh` linka sozinho o mundo que for lançar. Se a competição tem arena
+nova, é lá que o `.sdf` entra. Veja
+[gazebo_models_setup.md](gazebo_models_setup.md).
 
 O `build.sh` e o `agent.sh` normalmente não precisam de mudança.
 
@@ -508,43 +510,100 @@ O `build.sh` e o `agent.sh` normalmente não precisam de mudança.
 
 ### Passo 3 — Criar o primeiro pacote de missão
 
-**Use o `ros2 pkg create`.** Não escreva `CMakeLists.txt` à mão — ele gera a
-estrutura que o `ament` espera, e um arquivo escrito à mão que esqueça um
-detalhe produz um pacote que compila mas não é encontrado pelo `ros2 run`.
+Toda fase de competição começa igual: os mesmos includes, uma classe que herda
+de `fsm::FSM`, outra que herda de `rclcpp::Node`, o carregamento dos parâmetros
+na blackboard, os estados de arming/takeoff/landing com suas transições, o timer
+de 20 Hz e o `main` com o executor.
+
+**Não escreva isso à mão.** Um comando gera tudo:
 
 ```bash
 cd ~/evtol/dev/src/cbr2027
-source ~/evtol/dev/scripts/ros_env.sh
+~/evtol/dev/templates/new_mission.sh fase1
+```
 
+O que sai:
+
+```
+fase1/
+├── package.xml                    dependências já declaradas
+├── CMakeLists.txt                 alvo, includes, install de launch/ e config/
+├── src/fase1.cpp                  FSM + Node completos
+├── include/fase1/states/
+│   └── example_state.hpp          estado de exemplo, comentado, para copiar
+├── config/simulation.yaml
+├── config/flight.yaml
+└── launch/simulation.launch.py
+    launch/flight.launch.py
+```
+
+**O pacote gerado já compila e já voa** — arma, decola e pousa — sem você
+escrever uma linha. É o esqueleto mínimo funcional, para você começar pela
+lógica da missão em vez de pelo boilerplate.
+
+Dentro do `.cpp` os pontos de extensão estão marcados com **`ACRESCENTE`**:
+
+| Onde | O que colocar |
+|---|---|
+| `// ACRESCENTE aqui os estados` | `add_state("MEU_ESTADO", ...)` |
+| transições do `TAKEOFF` | trocar `LANDING` pelo primeiro estado real da missão |
+| `default_params` | os parâmetros da missão (e replicar nos dois YAML) |
+| assinatura de visão | o `create_subscription` do detector que a fase usa |
+
+#### Criando um estado
+
+Copie o modelo e ajuste:
+
+```bash
+cp fase1/include/fase1/states/example_state.hpp \
+   fase1/include/fase1/states/search_target_state.hpp
+```
+
+Um estado tem três partes:
+
+| Método | Quando roda | Para quê |
+|---|---|---|
+| `on_enter` | uma vez, ao entrar | ler parâmetros da blackboard, guardar o alvo |
+| `act` | a cada tick (20 Hz) | a lógica; devolve `""` para ficar, ou um outcome para transitar |
+| `on_exit` | uma vez, ao sair | limpeza (opcional) |
+
+Depois é só incluir o header no `.cpp`, registrar com `add_state` e ligar as
+transições.
+
+> **Tudo compartilhado passa pela blackboard.** Nunca variável global, nunca
+> ponteiro entre estados. O nó de visão escreve pela callback; os estados leem.
+
+> **Configuração, não código.** Trocar de simulação para voo real é trocar de
+> YAML, não editar `.cpp`. E variação de missão (busca em H em vez de linear)
+> deve ser parâmetro — não um pacote duplicado. O `sae2026` tem `mission_1` e
+> `mission_1_H`, que é exatamente o erro a não repetir.
+
+<details>
+<summary>Se preferir criar o pacote à mão</summary>
+
+Use `ros2 pkg create` — não escreva o `CMakeLists.txt` do zero:
+
+```bash
 ros2 pkg create --build-type ament_cmake --license MIT \
   --dependencies rclcpp fsm drone_lib stdstates custom_msgs \
   --node-name fase1 fase1
-```
-
-Isso cria `fase1/` com `package.xml`, `CMakeLists.txt` e `src/fase1.cpp`.
-
-> **Cuidado com o `package.xml`:** o `maintainer` precisa de um e-mail
-> **válido**. Um placeholder como `a@b.c` faz o build falhar com um erro de
-> parse que não explica a causa.
-
-Adicione as pastas de configuração e launch, que é a convenção do time:
-
-```bash
 mkdir -p fase1/config fase1/launch fase1/include/fase1/states
 ```
 
-| Pasta | Para quê |
-|---|---|
-| `config/` | `simulation.yaml` e `flight.yaml` — parâmetros (PIDs, distâncias, alturas) |
-| `launch/` | `simulation.launch.py` e `flight.launch.py` |
-| `include/fase1/states/` | Estados da FSM específicos desta missão |
-| `src/` | O `main` que monta a máquina de estados |
+Três detalhes que custam tempo:
 
-> **Configuração, não código.** Trocar de simulação para voo real deve ser
-> trocar de YAML, não editar `.cpp`. E variação de missão (uma busca em H em vez
-> de linear, por exemplo) deve ser parâmetro — não um pacote duplicado. O
-> `sae2026` tem `mission_1` e `mission_1_H`, que é exatamente o erro a não
-> repetir.
+- O `maintainer` do `package.xml` precisa de e-mail **válido**. Um placeholder
+  como `a@b.c` faz o build falhar com erro de parse que não explica a causa.
+- Declare `<depend>eigen</depend>`, a chave do **rosdep** — não
+  `<depend>Eigen3</depend>`, que é o nome do pacote **CMake** e não existe no
+  índice. Esse erro estava no `drone_lib` e no `stdstates`.
+- No `main`, **não** adicione o `Drone` ao executor. Ele já sobe o próprio
+  executor e a própria thread de spin no construtor; adicioná-lo lança
+  `Node '/Drone' has already been added to an executor` em tempo de execução.
+
+O gerador já acerta os três.
+
+</details>
 
 ---
 
@@ -750,8 +809,9 @@ cd ~/evtol/dev && ./doctor.sh
 | `git commit` some / "HEAD detached at v0.2.0" | Normal depois de `vcs import`. Veja [a seção sobre isso](#vcs-import-deixa-os-repositórios-em-detached-head). |
 | Build falha só na sua máquina | Rode `./doctor.sh`; se passar, pode ser dependência não declarada — o CI mostra. |
 | Máquina trava durante o build | Falta de RAM. Veja a seção de swap no [SETUP.md](SETUP.md). |
-| `gz_bridge: Service call timed out. Check GZ_SIM_RESOURCE_PATH` | Quase sempre **não** é o `GZ_SIM_RESOURCE_PATH`: é um mundo ou modelo novo em `~/PX4-gazebo-models` sem symlink dentro do PX4. Refaça os symlinks — [gazebo_models_setup.md](gazebo_models_setup.md). |
+| `gz_bridge: Service call timed out. Check GZ_SIM_RESOURCE_PATH` | Quase sempre **não** é o path. Ou o `.sdf` não existe em `~/PX4-gazebo-models` (o `simulate.sh` avisa antes), ou o Gazebo demorou demais no primeiro arranque numa máquina com pouca RAM — tente de novo. |
 | Um pacote fica num estado esquisito | `rm -rf build/<pkg> install/<pkg>` e recompile. |
+| `Node '/Drone' has already been added to an executor` | O `Drone` já sobe o próprio executor. Remova o `executor.add_node(drone)` do `main` — só o nó da missão entra. |
 
 ### Onde perguntar ao próprio workspace
 
