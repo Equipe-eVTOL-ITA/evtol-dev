@@ -30,7 +30,10 @@
             "label": "build",
             "detail": "Compila um pacote (ou 'all' / 'deps') — Ctrl+Shift+B",
             "type": "shell",
-            "command": "bash src/${input:competicao}/scripts/build.sh ${input:alvoBuild}",
+            // A opcao vem como "competicao:alvo"; ${A%%:*} pega a competicao e
+            // ${A#*:} pega o alvo. Assim uma escolha so ja diz as duas coisas,
+            // e nao existe combinacao invalida.
+            "command": "A='${input:alvoBuild}'; bash \"src/${A%%:*}/scripts/build.sh\" \"${A#*:}\"",
             "group": { "kind": "build", "isDefault": true },
             "problemMatcher": "$gcc",
             "presentation": { "panel": "dedicated", "clear": true }
@@ -57,7 +60,7 @@
             "label": "sim: PX4 + Gazebo",
             "detail": "Sobe o simulador num mundo da competição",
             "type": "shell",
-            "command": "bash src/${input:competicao}/scripts/simulate.sh ${input:mundo}",
+            "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/simulate.sh\" \"${M#*:}\"",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "group": "sim" }
         },
@@ -65,7 +68,9 @@
             "label": "sim: agente DDS",
             "detail": "Micro XRCE-DDS Agent — ponte PX4 ↔ ROS 2",
             "type": "shell",
-            "command": "bash src/${input:competicao}/scripts/agent.sh",
+            // O agent.sh e igual em todas as competicoes; usamos a do mundo escolhido
+            // so para nao precisar de mais uma pergunta.
+            "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/agent.sh\"",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "group": "sim" }
         },
@@ -136,31 +141,56 @@
 
     "inputs": [
         {
-            "id": "competicao",
-            "description": "Competição",
-            "type": "pickString",
-            "options": [ "sae2026" ],
-            "default": "sae2026"
-        },
-        {
             "id": "mundo",
-            "description": "Mundo do Gazebo (tem que existir na competição escolhida)",
+            "description": "Mundo do Gazebo (competição:mundo)",
             "type": "pickString",
-            "options": [ "sae1" ],
-            "default": "sae1"
+            "options": [
+                "cbr2026:default",
+                "cbr2026:fase1",
+                "cm204-evtol:casa1",
+                "sae2026:default",
+                "sae2026:sae1",
+                "sae2026:sae2",
+                "sae2026:sae3"
+            ],
+            "default": "sae2026:sae1"
         },
         {
             "id": "alvoBuild",
-            "description": "Alvo do build",
+            "description": "O que compilar (competição:alvo)",
             "type": "pickString",
-            "options": [ "all", "deps" ],
-            "default": "all"
+            "options": [
+                "cbr2026:all",
+                "cbr2026:deps",
+                "cbr2026:fase1",
+                "cm204-evtol:all",
+                "cm204-evtol:cbr2025_fase4",
+                "cm204-evtol:deps",
+                "sae2026:all",
+                "sae2026:audio_alert",
+                "sae2026:deps",
+                "sae2026:mission_1",
+                "sae2026:mission_1_H",
+                "sae2026:mission_2",
+                "sae2026:mission_3",
+                "sae2026:mission_teste"
+            ],
+            "default": "sae2026:all"
         },
         {
             "id": "pacoteMissao",
             "description": "Pacote da missão",
             "type": "pickString",
-            "options": [ "mission_1" ],
+            "options": [
+                "audio_alert",
+                "cbr2025_fase4",
+                "fase1",
+                "mission_1",
+                "mission_1_H",
+                "mission_2",
+                "mission_3",
+                "mission_teste"
+            ],
             "default": "mission_1"
         }
     ]
