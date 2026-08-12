@@ -1,84 +1,81 @@
 # Modelos e Mundos Customizados do Gazebo
 
-Como instalar os modelos (`x500_sae`, `x500_dual_cam`, ...) e mundos
-(`sae1_26`, `sae2_26`, `sae3_26`, ...) da equipe dentro do PX4.
-
-> **Este é o método oficial.** Ele substitui a instrução que existia na §4 do
-> `SETUP.md` (trocar o `remote` de `Tools/simulation/gz` para o fork da
-> equipe). Os dois métodos coexistiram por um tempo, e o resultado foi uma
-> máquina com **as duas coisas ao mesmo tempo** — parte dos mundos vindo de um
-> checkout e parte de outro, em commits diferentes do mesmo repositório. Veja
-> *Se a sua máquina já tem o método antigo* no fim.
-
----
-
-## Por que não basta variável de ambiente
-
-O `rcS` do PX4 força o Gazebo a procurar os `.sdf` dentro da própria árvore do
-PX4 (`~/PX4-Autopilot/Tools/simulation/gz/`). Exportar `GZ_SIM_RESOURCE_PATH`
-apontando para outro lugar não é suficiente: o PX4 continua lendo de lá.
-
-Por isso os modelos precisam *aparecer* dentro daquela pasta. Fazemos isso com
-**symlinks**, para que o repositório dos modelos continue sendo um repositório
-normal, atualizável com `git pull`, sem se misturar ao submódulo do PX4.
-
----
+Como os modelos (`x500_sae`, `x500_cbr2026`, ...) e mundos (`sae1_26`,
+`cbr2026_fase1`, ...) da equipe chegam até a simulação.
 
 ## Instalação
 
 Uma vez por máquina:
 
 ```bash
-# 1. Clone o repositório de modelos da equipe
-cd ~
-git clone https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models.git
-
-# 2. Aponte os modelos para dentro da árvore do PX4
-for d in ~/PX4-gazebo-models/models/*/; do
-    ln -sfn "$d" ~/PX4-Autopilot/Tools/simulation/gz/models/"$(basename "$d")"
-done
-
-# 3. Idem para os mundos
-ln -sf ~/PX4-gazebo-models/worlds/*.sdf ~/PX4-Autopilot/Tools/simulation/gz/worlds/
+git clone https://github.com/Equipe-eVTOL-ITA/PX4-gazebo-models.git ~/PX4-gazebo-models
 ```
 
-A partir daí, atualizar **modelos e mundos que já existiam** é só:
+**É só isso.** Não há symlink a criar, nem passo a repetir quando um modelo
+novo entra no repositório.
+
+> A versão (commit) do repositório é pinada em `env/<perfil>.yaml` e conferida
+> pelo `doctor.sh`. Se você atualizar o repositório, atualize o pin no mesmo
+> PR: mundo diferente é resultado diferente.
+
+## Como funciona
+
+Modelos e mundos são resolvidos de formas **diferentes** pelo PX4, e vale
+saber qual é qual:
+
+| | Como é encontrado |
+|---|---|
+| **Modelos** | O Gazebo procura no `GZ_SIM_RESOURCE_PATH`. O `simulate.sh` põe `~/PX4-gazebo-models/models` **na frente**, então o repositório da equipe tem prioridade — e pode até sobrescrever um modelo do próprio PX4. |
+| **Mundos** | O PX4 monta um caminho absoluto dentro da árvore dele: `gz sim -s "${PX4_GZ_WORLDS}/${mundo}.sdf"`. O arquivo precisa aparecer lá. O `simulate.sh` cria o link do mundo que vai lançar, sozinho. |
+
+Ou seja: **você não precisa fazer nada além de clonar.** Adicionou um modelo?
+Ele já é encontrado. Adicionou um mundo? O `simulate.sh` linka na primeira vez
+que você o usa.
+
+### Por que a ordem do path importa
+
+Isto já causou bug. Enquanto a árvore do PX4 vinha primeiro no
+`GZ_SIM_RESOURCE_PATH`, uma cópia antiga de modelo escondia a deste
+repositório — a versão que rodava não era a versionada, e ninguém percebia.
+Foi assim que a `vertical_camera` ficou com duas poses diferentes e o
+`sae2_26.sdf` ficou defasado por meses.
+
+## Se a sua máquina veio do método antigo
+
+Até 2026-08, dois métodos conviveram: trocar o `remote` do submódulo
+`Tools/simulation/gz` do PX4 para o fork da equipe, **e** criar symlinks. O
+resultado era duplicação — os modelos existiam em dois lugares, e o do PX4
+ganhava.
+
+Para voltar ao estado limpo:
 
 ```bash
-git -C ~/PX4-gazebo-models pull
+# 1. Restaura o submódulo original do PX4
+cd ~/PX4-Autopilot
+git submodule sync -- Tools/simulation/gz
+git submodule update --init --force Tools/simulation/gz
+
+# 2. Remove o que sobrou (cópias e symlinks da era anterior)
+git -C Tools/simulation/gz clean -fd models worlds
+
+# 3. Confirme
+git -C Tools/simulation/gz status --porcelain   # deve sair vazio
 ```
 
-Os symlinks apontam para os arquivos, então o conteúdo novo aparece sozinho.
-
-> **Mas arquivo NOVO não ganha symlink sozinho.** Os symlinks são criados uma
-> vez; se você (ou alguém) adicionar um mundo ou modelo ao repositório depois
-> disso, ele existe em `~/PX4-gazebo-models` e **não** dentro do PX4. O sintoma
-> é o PX4 falhar apontando para o lugar errado:
->
-> ```
-> Unable to find or download file
-> ERROR [gz_bridge] Service call timed out. Check GZ_SIM_RESOURCE_PATH is set correctly.
-> ```
->
-> A mensagem manda olhar o `GZ_SIM_RESOURCE_PATH`, mas a causa é o symlink que
-> falta. O `simulate.sh` dos templates confere isso antes de chamar o PX4 e
-> avisa com o comando pronto.
->
-> **Depois de adicionar qualquer coisa nova, refaça os symlinks** — os passos 2
-> e 3 são idempotentes, pode rodar quantas vezes quiser:
+> **Antes do passo 2**, confira que nada existe apenas na árvore do PX4:
 >
 > ```bash
-> for d in ~/PX4-gazebo-models/models/*/; do
->     ln -sfn "$d" ~/PX4-Autopilot/Tools/simulation/gz/models/"$(basename "$d")"
+> cd ~/PX4-Autopilot/Tools/simulation/gz
+> for i in $(git status --porcelain | awk '{print $2}'); do
+>     [ -e ~/PX4-gazebo-models/"${i%/}" ] || echo "SÓ AQUI: $i"
 > done
-> ln -sf ~/PX4-gazebo-models/worlds/*.sdf ~/PX4-Autopilot/Tools/simulation/gz/worlds/
 > ```
+>
+> Se listar algo, leve para `~/PX4-gazebo-models` antes de limpar.
 
-> A versão (commit) de `~/PX4-gazebo-models` é pinada em `env/<perfil>.yaml` e
-> conferida pelo `doctor.sh`. Se você atualizar o repositório, atualize o pin no
-> mesmo PR: mundo diferente é resultado diferente.
-
----
+Um detalhe do método antigo que gerava lixo: o `ln -sfn origem destino` com o
+destino já existindo como diretório real não substitui — cria o link **dentro**
+dele. Ficavam coisas como `models/x500/x500 -> .../models/x500/`.
 
 ## Verificação
 
@@ -87,51 +84,10 @@ cd ~/evtol/dev
 bash src/sae2026/scripts/simulate.sh sae1
 ```
 
-Espere ver o modelo `x500_sae` no mundo e, no console:
+Espere ver o modelo no mundo e, no console, `INFO [commander] Ready for
+takeoff!`.
 
-```
-INFO  [commander] Ready for takeoff!
-```
-
-Confira também que os mundos em uso são mesmo symlinks (e não cópias antigas
-escondendo os atuais):
-
-```bash
-ls -l ~/PX4-Autopilot/Tools/simulation/gz/worlds/sae*_26.sdf
-```
-
-Todos devem aparecer como `-> /home/<você>/PX4-gazebo-models/worlds/...`.
-
----
-
-## Se a sua máquina já tem o método antigo
-
-Sintoma: `Tools/simulation/gz` tem o fork da equipe como `origin`, e alguns
-mundos são arquivos reais em vez de symlinks. O risco é concreto — numa máquina
-do time foi encontrado exatamente isto:
-
-| Mundo | Origem | Tamanho |
-|---|---|---|
-| `sae1_26.sdf` | symlink → `~/PX4-gazebo-models` (mai/2026) | atual |
-| `sae2_26.sdf` | **arquivo real** do remote trocado (out/2025) | **4064 bytes** |
-| `sae3_26.sdf` | symlink → `~/PX4-gazebo-models` (mai/2026) | atual |
-
-O `sae2_26.sdf` do remote trocado tinha **4064 bytes** contra **4315** do
-atual: quem rodava `simulate.sh sae2` estava simulando contra um mundo
-diferente do que `sae1` e `sae3` usavam, sem nenhum sinal disso.
-
-Para voltar ao estado limpo:
-
-```bash
-# 1. Restaure Tools/simulation/gz para o submódulo original do PX4
-cd ~/PX4-Autopilot
-git submodule update --init --force Tools/simulation/gz
-
-# 2. Refaça os symlinks (passos 2 e 3 da Instalação acima)
-
-# 3. Confirme que não sobrou arquivo real escondendo symlink
-ls -l ~/PX4-Autopilot/Tools/simulation/gz/worlds/*.sdf | grep -v '\->'
-```
-
-O passo 3 deve não listar nenhum mundo da equipe. Se listar, apague o arquivo e
-refaça o symlink daquele mundo.
+Se o mundo ou o modelo não for encontrado, o `simulate.sh` para antes de
+chamar o PX4 e diz exatamente o que falta — em vez de deixar o PX4 falhar com
+`Service call timed out. Check GZ_SIM_RESOURCE_PATH`, que aponta para o lugar
+errado.
