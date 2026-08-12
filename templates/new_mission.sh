@@ -524,6 +524,21 @@ sed -e 's/simulation\.yaml/flight.yaml/' \
 
 chmod +x "$PKG/launch/"*.py
 
+# ---------------------------------------------------------------------------
+# Atualiza as listas suspensas das tasks do VS Code, para que a missao recem
+# criada ja apareca em "Tasks: Run Task" sem ninguem editar nada a mao.
+#
+# O VS Code so aceita lista fixa nos inputs; o sincronizador deriva a lista do
+# que existe em src/. Sem isto, a task continuaria oferecendo so as missoes
+# antigas -- que era exatamente o problema antes.
+# ---------------------------------------------------------------------------
+WS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$WS_ROOT/scripts/sync_tasks.py" ]]; then
+    python3 "$WS_ROOT/scripts/sync_tasks.py" >/dev/null 2>&1 \
+        && echo "Tasks do VS Code atualizadas: '$PKG' ja aparece em Tasks: Run Task." \
+        || echo "AVISO: nao consegui atualizar as tasks do VS Code (rode: python3 scripts/sync_tasks.py)" >&2
+fi
+
 cat <<EOF
 
 Pacote '$PKG' criado em $PWD/$PKG

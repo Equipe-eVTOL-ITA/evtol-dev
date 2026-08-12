@@ -139,59 +139,28 @@
             "id": "competicao",
             "description": "Competição",
             "type": "pickString",
-            "options": [
-                "cbr2026",
-                "cm204-evtol",
-                "sae2026"
-            ],
+            "options": [ "sae2026" ],
             "default": "sae2026"
         },
         {
             "id": "mundo",
             "description": "Mundo do Gazebo (tem que existir na competição escolhida)",
             "type": "pickString",
-            "options": [
-                "casa1",
-                "default",
-                "fase1",
-                "sae1",
-                "sae2",
-                "sae3"
-            ],
+            "options": [ "sae1" ],
             "default": "sae1"
         },
         {
             "id": "alvoBuild",
             "description": "Alvo do build",
             "type": "pickString",
-            "options": [
-                "all",
-                "deps",
-                "audio_alert",
-                "cbr2025_fase4",
-                "fase1",
-                "mission_1",
-                "mission_1_H",
-                "mission_2",
-                "mission_3",
-                "mission_teste"
-            ],
+            "options": [ "all", "deps" ],
             "default": "all"
         },
         {
             "id": "pacoteMissao",
             "description": "Pacote da missão",
             "type": "pickString",
-            "options": [
-                "audio_alert",
-                "cbr2025_fase4",
-                "fase1",
-                "mission_1",
-                "mission_1_H",
-                "mission_2",
-                "mission_3",
-                "mission_teste"
-            ],
+            "options": [ "mission_1" ],
             "default": "mission_1"
         }
     ]
