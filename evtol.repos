@@ -129,6 +129,20 @@ repositories:
     # ReturnHome. A v0.1.1 corrigiu a chave rosdep do Eigen (Eigen3 -> eigen) e
     # continua valida para quem so precisa de arming/takeoff/goto.
 
+  stdbt:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/stdbt.git
+    version: v0.1.0
+    # Contrapartida do stdstates para Behavior Trees. Um adaptador de sessenta
+    # linhas expoe qualquer fsm::State como acao de BT, para que uma fase possa
+    # escolher o motor sem que os onze estados validados em voo sejam
+    # duplicados.
+    #
+    # So os estados de RESULTADO UNICO viram no. Os de multiplos outcomes viram
+    # ESTRUTURA de arvore -- uma condicao e uma acao num Fallback --, porque
+    # envolve-los inteiros daria um no que devolve SUCCESS nos dois casos e a
+    # arvore perderia a informacao que importa.
+
   # ---------- Cross-cutting ----------
   telemetry_handler:
     type: git
