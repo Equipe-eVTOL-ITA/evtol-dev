@@ -79,6 +79,31 @@ _evtol_ros_env() {
 
     (( had_u )) && set -u
 
+    # ── Ambiente Python do workspace ────────────────────────────────────────
+    #
+    # Os pacotes pip que o workspace exige colidem com o resto da máquina. O
+    # caso medido: o `mediapipe` exige `protobuf < 5`, e o `~/.local` tinha
+    # `protobuf 7.34.1` posto lá pelo `tensorboard`, que exige `>= 6.31.1`.
+    # Não há versão que sirva aos dois.
+    #
+    # A saída é o `.venv` criado por `scripts/venv.sh`, e o jeito de usá-lo NÃO
+    # é ativá-lo. Os executáveis que o colcon instala têm `#!/usr/bin/python3`
+    # gravado no shebang, e `ros2 run` dispara esse interpretador
+    # independentemente de haver venv ativo — verificado. Ativar não muda nada.
+    #
+    # O que muda é o PYTHONPATH: o mesmo /usr/bin/python3 passa a IMPORTAR de
+    # dentro do venv. As entradas do PYTHONPATH têm precedência sobre o
+    # `~/.local`, então o protobuf do venv vence sem que o do sistema seja
+    # tocado.
+    #
+    # Se o venv não existir, seguimos sem ele. Uma máquina que não roda gestos
+    # não precisa dele, e quem precisar recebe a mensagem do doctor.
+    local venv_sp
+    venv_sp="$(echo "$ws_root"/.venv/lib/python3*/site-packages)"
+    if [[ -d "$venv_sp" ]]; then
+        export PYTHONPATH="$venv_sp${PYTHONPATH:+:$PYTHONPATH}"
+    fi
+
     return 0
 }
 

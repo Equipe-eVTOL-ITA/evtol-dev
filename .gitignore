@@ -41,3 +41,10 @@ __pycache__/
 # derivação volta junto.
 .vscode/*
 !.vscode/tasks.json
+
+# Ambiente Python do workspace, criado por scripts/venv.sh.
+#
+# Nao e versionado: e derivado do env/<perfil>.yaml, que E versionado. Quem
+# clonar roda ./scripts/venv.sh e obtem exatamente o mesmo conjunto -- que e a
+# mesma logica do evtol.repos para o codigo.
+.venv/

@@ -15,6 +15,31 @@
 # Aqui fica só o que vale para TODA máquina que roda ROS 2 Humble no time. O
 # que distingue uma máquina da outra fica no perfil dela, e a diferença cabe
 # na tela.
+#
+# ONDE OS PACOTES pip SÃO INSTALADOS
+# ----------------------------------
+# Não no sistema. Em `<workspace>/.venv`, criado por `./scripts/venv.sh` a
+# partir da seção `pip.required` do perfil.
+#
+# O motivo é concreto e foi medido: o `mediapipe` exige `protobuf < 5`, e o
+# `~/.local` desta máquina tinha `protobuf 7.34.1`, posto lá pelo
+# `tensorboard`, que por sua vez exige `>= 6.31.1`. Não existe versão que
+# satisfaça os dois. Instalar no sistema significaria quebrar ferramentas que
+# não têm nada a ver com o drone.
+#
+# (E o limite do mediapipe é real, não conservador: com o protobuf 7,
+# `GestureRecognizer.create_from_options` falha com `MessageFactory object has
+# no attribute GetPrototype`.)
+#
+# O venv NÃO é ativado no sentido usual. O `ros_env.sh` põe o `site-packages`
+# dele na frente do `PYTHONPATH`, e só. Isso é deliberado: os executáveis que o
+# colcon instala têm `#!/usr/bin/python3` gravado no shebang, e ativar um venv
+# não muda o interpretador que o `ros2 run` dispara — verificado. O que muda é
+# de ONDE esse interpretador importa.
+#
+# Consequência prática: o `.venv` é derivado deste arquivo, e por isso não é
+# versionado. Quem clona roda `./scripts/venv.sh` e obtém o mesmo conjunto —
+# a mesma lógica que o `evtol.repos` aplica ao código.
 # =============================================================================
 
 os:

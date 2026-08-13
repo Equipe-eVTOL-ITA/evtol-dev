@@ -113,8 +113,51 @@ def apt_version(pkg: str) -> str | None:
     return version.strip()
 
 
+def _venv_site_packages() -> Path | None:
+    """
+    O site-packages do .venv do workspace, se ele existir.
+
+    O workspace tem um ambiente Python proprio (criado por scripts/venv.sh)
+    porque os pacotes que ele exige colidem com o resto da maquina -- o caso
+    medido foi o `mediapipe`, que exige `protobuf < 5`, contra o `tensorboard`
+    do ~/.local, que exige `>= 6.31.1`.
+
+    O `ros_env.sh` poe este diretorio na frente do PYTHONPATH, e e de la que os
+    nos importam. Portanto e AQUI que o doctor precisa olhar: conferir o
+    ~/.local diria que falta mediapipe enquanto os nos rodam perfeitamente.
+    """
+    for caminho in sorted((WS_ROOT / ".venv" / "lib").glob("python3*/site-packages")):
+        if caminho.is_dir():
+            return caminho
+    return None
+
+
+def pip_version_venv_only(pkg: str) -> str | None:
+    """Versao do pacote DENTRO do venv do workspace, ignorando o sistema."""
+    from importlib import metadata
+
+    if (sp := _venv_site_packages()) is None:
+        return None
+    for dist in metadata.distributions(path=[str(sp)]):
+        try:
+            if (dist.metadata["Name"] or "").lower() == pkg.lower():
+                return dist.version
+        except Exception:
+            continue
+    return None
+
+
 def pip_version(pkg: str) -> str | None:
     from importlib import metadata
+
+    # Procura primeiro no venv do workspace, que e de onde os nos importam.
+    if (sp := _venv_site_packages()) is not None:
+        for dist in metadata.distributions(path=[str(sp)]):
+            try:
+                if (dist.metadata["Name"] or "").lower() == pkg.lower():
+                    return dist.version
+            except Exception:
+                continue
 
     try:
         return metadata.version(pkg)
@@ -162,11 +205,20 @@ def matches(actual: str, expected: str) -> bool:
 
 
 def install_hint(pkg: str, expected: str) -> str:
-    """Comando de instalação correto para a forma do valor esperado."""
+    """
+    Comando de instalação correto.
+
+    Aponta para `scripts/venv.sh`, e nao para um `pip install` avulso, porque o
+    workspace instala no seu proprio .venv em vez de na maquina. Sugerir o pip
+    direto mandaria o usuario poluir o ~/.local com pacotes que colidem com o
+    que ele ja tem -- foi exatamente o problema que o venv resolveu, com o
+    mediapipe exigindo protobuf < 5 contra o tensorboard exigindo >= 6.31.1.
+
+    A versao especifica fica no comentario, para quem quiser instalar a mao.
+    """
     expected = str(expected).strip()
-    if is_specifier(expected):
-        return f"pip install '{pkg}{expected}'"
-    return f"pip install '{pkg}=={expected}'"
+    alvo = f"{pkg}{expected}" if is_specifier(expected) else f"{pkg}=={expected}"
+    return f"./scripts/venv.sh    (instala '{alvo}' no .venv do workspace)"
 
 
 # --------------------------------------------------------------------------- #
@@ -307,8 +359,22 @@ def check_pip(spec: dict, rep: Report) -> None:
 
     if forbidden:
         section("Pacotes pip proibidos (conflitantes)")
+
+        # O proibido vale para o ambiente DE ONDE OS NOS IMPORTAM, e nao para a
+        # maquina inteira.
+        #
+        # Com o .venv, o site-packages dele vem na frente do PYTHONPATH e vence
+        # o ~/.local. Um `opencv-python` largado no sistema deixa de importar
+        # para o workspace -- e exigir que o usuario o desinstale seria mandar
+        # mexer em algo que nao e da nossa conta, possivelmente quebrando outra
+        # ferramenta dele. Era exatamente para PARAR de fazer isso que o venv
+        # existe.
+        #
+        # Sem venv, a maquina inteira e o ambiente, e a checagem volta a valer
+        # sobre ela.
+        tem_venv = _venv_site_packages() is not None
         for pkg, reason in sorted(forbidden.items()):
-            actual = pip_version(pkg)
+            actual = pip_version_venv_only(pkg) if tem_venv else pip_version(pkg)
             if actual is None:
                 rep.ok(f"{pkg} ausente")
             else:
