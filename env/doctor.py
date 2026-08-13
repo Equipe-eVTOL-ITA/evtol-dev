@@ -471,7 +471,59 @@ def check_git_repos(spec: dict, rep: Report) -> None:
 
 
 def available_profiles() -> list[str]:
-    return sorted(p.stem for p in ENV_DIR.glob("*.yaml"))
+    # Arquivos com "_" na frente sao BASES para herança, nao perfis
+    # selecionaveis. Ver load_profile.
+    return sorted(p.stem for p in ENV_DIR.glob("*.yaml") if not p.stem.startswith("_"))
+
+
+def _deep_merge(base: dict, over: dict) -> dict:
+    """
+    Funde `over` sobre `base`, descendo em dicionarios aninhados.
+
+    Chave presente nos dois: se ambas sao dicionario, funde; senao, `over`
+    vence. Nao ha fusao de listas -- uma lista em `over` SUBSTITUI a de `base`,
+    de proposito. Fundir listas tornaria impossivel a um perfil REMOVER um item
+    herdado, e remover e justamente o que um perfil especializado precisa fazer.
+    """
+    saida = dict(base)
+    for chave, valor in over.items():
+        if (chave in saida and isinstance(saida[chave], dict)
+                and isinstance(valor, dict)):
+            saida[chave] = _deep_merge(saida[chave], valor)
+        else:
+            saida[chave] = valor
+    return saida
+
+
+def load_profile(name: str, _vistos: set | None = None) -> dict:
+    """
+    Carrega um perfil, resolvendo `extends` recursivamente.
+
+    POR QUE HERANÇA EXISTE AQUI
+    ---------------------------
+    As maquinas do time diferem em pouco e coincidem em muito: mesma distro,
+    mesmo ROS, mesmo pin de numpy, mesmos repositorios externos. Duplicar as
+    ~300 linhas de justificativa medida entre dois arquivos garantiria que eles
+    divergissem -- e divergencia silenciosa entre maquinas e exatamente o
+    problema que este perfil existe para resolver. E o mesmo argumento que tirou
+    o PidController de nove copias.
+
+    Com `extends`, cada perfil declara SO O QUE O DISTINGUE, e a diferenca entre
+    duas maquinas cabe na tela.
+    """
+    _vistos = _vistos or set()
+    if name in _vistos:
+        sys.exit(f"ERRO: ciclo de 'extends' no perfil '{name}'")
+    _vistos.add(name)
+
+    caminho = ENV_DIR / f"{name}.yaml"
+    if not caminho.exists():
+        sys.exit(f"ERRO: perfil '{name}' nao existe em {ENV_DIR}")
+
+    spec = yaml.safe_load(caminho.read_text()) or {}
+    if pai := spec.pop("extends", None):
+        spec = _deep_merge(load_profile(pai, _vistos), spec)
+    return spec
 
 
 def resolve_profile(explicit: str | None) -> str:
@@ -521,7 +573,7 @@ def main() -> int:
             f"      Disponiveis: {', '.join(available_profiles()) or '(nenhum)'}"
         )
 
-    spec = yaml.safe_load(path.read_text()) or {}
+    spec = load_profile(name)
 
     print(_c(BOLD, f"eVTOL ITA — verificacao de ambiente"))
     print(f"perfil:    {_c(BOLD, name)}")
