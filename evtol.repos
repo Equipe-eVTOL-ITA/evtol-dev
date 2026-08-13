@@ -23,7 +23,14 @@ repositories:
   drone_lib:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-    version: v0.2.0
+    version: v0.3.0   # remove a API de gestos, que estava morta
+    # A v0.2.0 declara getHandGestures(), getHandLocation() e resetHands(), mas
+    # as inscricoes nos topicos nunca eram criadas: as chamadas
+    # create_subscription se perderam entre 2025 e 2026. Os getters devolviam
+    # {"", ""} e {0.5, 0.5} para sempre, entao uma missao de gestos construida
+    # sobre eles compilava, subia e nunca via um gesto. Ninguem no manifesto as
+    # usava. A leitura de visao passa a morar num no da missao, com mutex.
+    #
     # A v0.1.0 exige cv_bridge no CMakeLists sem declara-lo no package.xml e
     # sem usa-lo em lugar nenhum. Numa imagem minima -- e numa Jetson ou
     # Raspberry recem-instalada -- o build falha, e o rosdep nao pode ajudar
@@ -38,7 +45,14 @@ repositories:
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.2.1   # modulo Python unico para o base_detector
+    version: v0.3.0   # acrescenta o gesture_detector
+    # Reconhecimento de gestos por MediaPipe sobre a classe Detector. O
+    # gesture_classifier de 2025 fica no repositorio antigo: o modelo de 8 MB
+    # nao era instalado (so funcionava com --symlink-install), o indice da lista
+    # de gestos nao identificava a mao, e a posicao da mao so saia com
+    # Open_Palm, ou seja, parava exatamente durante o controle.
+    #
+    # A v0.2.1 deu modulo Python unico ao base_detector
     # A v0.2.0 nomeia o modulo interno do base_detector como `base_detector`,
     # igual ao pacote. O console script e inequivoco, mas o import dentro dele
     # resolve pelo PYTHONPATH, e o itajuba_cv_utils -- que NAO esta neste
@@ -78,7 +92,19 @@ repositories:
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
-    version: v0.2.1   # TakeoffState nao reancora o referencial na redecolagem
+    version: v0.3.0   # YawSweep, LandAndDisarm, pouso da altura real
+    # YawSweepState varre um setor em guinada usando a diferenca NORMALIZADA em
+    # relacao ao centro; a versao de 2025 usava limites absolutos e girava sem
+    # parar quando o setor cruzava a descontinuidade em pi.
+    #
+    # LandAndDisarmState pousa e desarma sem bloquear o executor, ao contrario
+    # do land() + disarmSync() que 2025 fazia dentro de um on_exit.
+    #
+    # PrecisionLandingState passa a MEDIR a altura de partida em vez de le-la do
+    # YAML. align_height deixa de ser lido -- a fase 1 pode remove-lo do config,
+    # e vale revalida-la, porque o pouso passa a partir da altitude real.
+    #
+    # A v0.2.1 fez o TakeoffState nao reancorar o referencial na redecolagem
     # Na v0.2.0 o TakeoffState chama setHomePosition sempre, movendo a origem do
     # mundo para a posicao atual. Toda missao que pousa e redecola perde as
     # coordenadas ja guardadas -- bases visitadas, grade, casa -- sem erro
