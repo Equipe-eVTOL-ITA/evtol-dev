@@ -130,7 +130,13 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.2.0   # fase 1 validada em voo
+    version: v0.3.0   # acrescenta a fase 3, controle por gestos
+    # A fase 3 tem arranjo DISTRIBUIDO: a camera fica no drone e a imagem
+    # comprimida atravessa a rede ate o computador de solo, que roda o
+    # reconhecimento de gestos e a FSM. Dai os quatro launches -- simulacao,
+    # embarcado, solo e replay -- em vez dos dois da fase 1.
+    #
+    # A v0.2.0 e a fase 1 validada em voo
     # A v0.1.0 compila mas nao voa: reancora o referencial do mundo a cada
     # redecolagem e persegue a caixa mais central da imagem em vez da base
     # escolhida pela busca. O drone pousa na mesma base repetidamente e depois
