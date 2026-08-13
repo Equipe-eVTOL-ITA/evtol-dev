@@ -158,7 +158,12 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.3.1   # a fase 3 VOA
+    version: v0.4.0   # acrescenta a fase 4, esqueleto em Behavior Tree
+    # Primeira fase modelada como arvore em vez de maquina de estados. As fases
+    # 1, 2 e 3 seguem em FSM -- a escolha e por fase, pelo --engine do
+    # new_mission.sh.
+    #
+    # A v0.3.1 fez a fase 3 VOAR
     # A v0.3.0 compila mas nao funciona: o config pedia
     # <camera_name>/image/compressed e o webcam_publisher publica em
     # <camera_name>_camera/compressed. O detector nunca recebia quadro, e o
