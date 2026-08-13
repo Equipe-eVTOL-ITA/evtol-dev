@@ -79,7 +79,51 @@ done
 [[ "$PKG" =~ ^[a-z][a-z0-9_]*$ ]] || \
     die "'$PKG' não é um nome válido de pacote ROS (minúsculas, dígitos, underscore, começando por letra)."
 
-[[ -d .git ]] || echo "AVISO: você não parece estar na raiz de um repositório git." >&2
+# ── Estou no lugar certo? ────────────────────────────────────────────────────
+#
+# Esta checagem era `[[ -d .git ]]`, e um aviso. Nao servia: a raiz do workspace
+# (~/evtol/dev) TAMBEM e um repositorio git -- e o evtol-dev --, entao rodar o
+# gerador de la nao disparava aviso nenhum e criava a fase no lugar errado,
+# fora de qualquer competicao.
+#
+# O sinal confiavel e o diretorio PAI se chamar `src`. E a mesma heuristica que
+# o env/doctor.py usa para achar a raiz do workspace, e ela distingue
+# <ws>/src/cbr2026 (certo) de <ws> (errado) sem ambiguidade.
+#
+# E erro, nao aviso: uma fase criada no lugar errado nao entra no manifesto, nao
+# aparece nas tasks e nao compila. Melhor parar aqui do que descobrir depois.
+if [[ "$(basename "$(dirname "$PWD")")" != "src" ]]; then
+    cat >&2 <<AJUDA
+ERRO: rode este script de dentro do repositorio da COMPETICAO, nao daqui.
+
+  Voce esta em:  $PWD
+
+  O esperado e um diretorio dentro de <workspace>/src/, por exemplo:
+
+      cd ~/evtol/dev/src/cbr2026
+      ~/evtol/dev/templates/new_mission.sh $PKG${ENGINE:+ --engine $ENGINE}
+
+  Competicoes disponiveis neste workspace:
+AJUDA
+    # O criterio de "competicao" e ter scripts/simulate.sh, o MESMO que o
+    # scripts/sync_tasks.py usa. Se as duas ferramentas discordassem sobre o
+    # que e uma competicao, uma fase criada por este script poderia nunca
+    # aparecer nas tasks do VSCode.
+    ws_guess="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    achou=0
+    if [[ -d "$ws_guess/src" ]]; then
+        for d in "$ws_guess"/src/*/; do
+            if [[ -f "$d/scripts/simulate.sh" ]]; then
+                echo "      $(basename "$d")" >&2
+                achou=1
+            fi
+        done
+    fi
+    (( achou )) || echo "      (nenhuma encontrada em $ws_guess/src)" >&2
+    exit 1
+fi
+
+[[ -d .git ]] || echo "AVISO: '$PWD' esta sob src/ mas nao e um repositorio git." >&2
 [[ -e "$PKG" ]] && die "'$PKG' já existe aqui. Escolha outro nome ou apague o diretório."
 
 # fase1 -> Fase1 ; missao_2 -> Missao2   (para os nomes de classe)
