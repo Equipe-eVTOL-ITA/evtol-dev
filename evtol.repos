@@ -45,7 +45,13 @@ repositories:
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.3.0   # acrescenta o gesture_detector
+    version: v0.3.1   # imagem de debug util no gesture_detector
+    # A v0.3.0 so desenhava a anotacao quando havia mao, e um quadro limpo e
+    # ambiguo entre "nao vejo mao" e "nao chegou quadro nenhum". A v0.3.1
+    # mostra contador de quadros, "SEM MAO" em vermelho, e o centroide ligado a
+    # mira do centro -- o ponto que os PIDs perseguem.
+    #
+    # A v0.3.0 acrescentou o gesture_detector
     # Reconhecimento de gestos por MediaPipe sobre a classe Detector. O
     # gesture_classifier de 2025 fica no repositorio antigo: o modelo de 8 MB
     # nao era instalado (so funcionava com --symlink-install), o indice da lista
@@ -130,7 +136,14 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.3.0   # acrescenta a fase 3, controle por gestos
+    version: v0.3.1   # a fase 3 VOA
+    # A v0.3.0 compila mas nao funciona: o config pedia
+    # <camera_name>/image/compressed e o webcam_publisher publica em
+    # <camera_name>_camera/compressed. O detector nunca recebia quadro, e o
+    # drone giraria para sempre procurando uma mao que ninguem enxergava --
+    # sem erro nenhum.
+    #
+    # A v0.3.0 acrescentou a fase 3, controle por gestos
     # A fase 3 tem arranjo DISTRIBUIDO: a camera fica no drone e a imagem
     # comprimida atravessa a rede ate o computador de solo, que roda o
     # reconhecimento de gestos e a FSM. Dai os quatro launches -- simulacao,
