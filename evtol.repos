@@ -94,7 +94,15 @@ repositories:
   fsm:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/fsm.git
-    version: v0.1.0
+    version: v0.2.0   # ciclo de vida do State publico
+    # Na v0.1.0, act/on_enter/on_exit sao privados com `friend class FSM`: so a
+    # FSM pode executar um estado, e nenhum outro executor pode existir. O stdbt
+    # precisa executar os mesmos estados como acoes de Behavior Tree.
+    #
+    # As derivadas costumam declarar act e on_enter como publicas ao
+    # sobrescrever, entao um adaptador as alcancava -- mas NENHUM dos treze
+    # estados do stdstates sobrescreve on_exit, e ali o nome resolvia para a
+    # base privada. O adaptador compilava para uns estados e nao para outros.
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git

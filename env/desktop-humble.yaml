@@ -68,7 +68,29 @@ apt:
     ros-humble-vision-msgs: "*"
     ros-humble-cv-bridge: "*"
 
+    # --- Behavior Trees --------------------------------------------------
+    # Necessário para as fases que usam BT em vez de FSM. O `stdbt` e as
+    # missões geradas com `new_mission.sh --engine bt` dependem dele.
+    #
+    # A VARIANTE IMPORTA, e é por isso que está aqui em vez de ficar só a cargo
+    # do rosdep: existem dois pacotes, e o nome do errado é mais intuitivo que o
+    # do certo.
+    #
+    #   ros-humble-behaviortree-cpp      -> v4  <- este
+    #   ros-humble-behaviortree-cpp-v3   -> v3, API incompatível
+    #
+    # (No rosdistro o REPOSITÓRIO chama-se `behaviortree_cpp_v4`, mas o PACOTE
+    # que ele produz é `behaviortree_cpp` sem sufixo. Declarar
+    # `behaviortree_cpp_v4` no package.xml falha no rosdep.)
+    ros-humble-behaviortree-cpp: "4.*"     # verificado: 4.9.1-1jammy
+
   forbidden:
+    ros-humble-behaviortree-cpp-v3: >-
+      É a v3 do BehaviorTree.CPP, com API incompatível com a v4 que o `stdbt`
+      usa. O nome com sufixo parece o mais recente e é o contrário: o pacote
+      sem sufixo é que traz a v4. Instalados juntos, qual dos dois o CMake
+      encontra depende da ordem de busca.
+
     # Instalar qualquer um destes junto com o Garden quebra a simulação EM
     # SILÊNCIO. O valor é a explicação mostrada quando o doctor encontra o
     # pacote instalado.
