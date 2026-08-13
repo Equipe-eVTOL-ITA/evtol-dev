@@ -104,11 +104,10 @@ echo "==> Perfil: $profile"
 
 # A distro do ROS vem do perfil, nunca de um valor fixo aqui. É o que permite
 # que a mesma ferramenta sirva a Jetson (humble) e a Raspberry (jazzy).
-ros_distro="$(python3 -c "
-import sys, yaml
-spec = yaml.safe_load(open('$profile_file')) or {}
-print((spec.get('ros') or {}).get('distro', ''))
-")"
+# A distro vem do doctor.py, que e quem sabe resolver a heranca entre perfis
+# (`extends`). Este script ja teve parser proprio, e ele quebrou no dia em que
+# `ros.distro` passou a morar na base comum. Uma implementacao so.
+ros_distro="$(python3 "$meta_dir/env/doctor.py" --get ros.distro --profile "$profile" 2>/dev/null)"
 
 if [[ -z "$ros_distro" ]]; then
     echo "ERRO: o perfil '$profile' não declara ros.distro." >&2

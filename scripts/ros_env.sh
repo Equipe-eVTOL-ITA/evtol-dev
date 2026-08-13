@@ -40,11 +40,16 @@ _evtol_ros_env() {
         return 1
     fi
 
-    distro="$(python3 -c "
-import yaml
-spec = yaml.safe_load(open('$profile_file')) or {}
-print((spec.get('ros') or {}).get('distro', ''))
-" 2>/dev/null)"
+    # A distro vem do doctor.py, e NAO de um yaml.safe_load daqui.
+    #
+    # Este script ja teve o seu proprio parser de YAML. Funcionava ate os
+    # perfis ganharem heranca (`extends`) e `ros.distro` passar a morar na base
+    # comum: o parser local nao sabia resolver isso, e TODA task do VSCode
+    # passou a falhar com "o perfil nao declara ros.distro" -- enquanto o
+    # doctor seguia verde, porque so ele tinha aprendido.
+    #
+    # Uma implementacao so de "ler o perfil". Nao volte a duplicar aqui.
+    distro="$(python3 "$ws_root/env/doctor.py" --get ros.distro --profile "$profile" 2>/dev/null)"
 
     if [[ -z "$distro" ]]; then
         echo "ros_env.sh: o perfil '$profile' não declara ros.distro." >&2

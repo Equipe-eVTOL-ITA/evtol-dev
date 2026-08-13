@@ -1,0 +1,122 @@
+# =============================================================================
+# CI do evtol-dev — o repositório que não tinha CI, e por isso quebrou tudo.
+# =============================================================================
+#
+# POR QUE ESTE ARQUIVO EXISTE
+#
+# Este repositório não tem código compilável: tem o manifesto, os perfis de
+# ambiente e os scripts que TODA máquina do time usa para carregar o ROS,
+# compilar e simular. Justamente por não ter código, ficou sem CI.
+#
+# O preço apareceu de uma vez. Quando os perfis ganharam herança (`extends`) e
+# `ros.distro` passou a morar na base comum, o `doctor.py` aprendeu a resolver
+# a herança e o `ros_env.sh` e o `setup.sh` — que tinham parsers de YAML
+# próprios — não. O resultado: TODA task do VSCode passou a falhar com
+#
+#     ros_env.sh: o perfil 'desktop-humble' não declara ros.distro.
+#
+# enquanto o `./doctor.sh` seguia dizendo que estava tudo certo.
+#
+# Os testes abaixo são baratos e teriam pego isso no PR.
+# =============================================================================
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: manifesto, perfis e scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml shellcheck
+
+      - name: Sintaxe dos scripts de shell
+        run: |
+          erros=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "::error file=$f::erro de sintaxe"; erros=1; }
+          done < <(find . -name '*.sh' -not -path './.git/*')
+          exit $erros
+
+      - name: Sintaxe dos scripts de Python
+        run: |
+          erros=0
+          while IFS= read -r f; do
+            python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$f" \
+              || { echo "::error file=$f::erro de sintaxe"; erros=1; }
+          done < <(find . -name '*.py' -not -path './.git/*')
+          exit $erros
+
+      - name: Todo YAML analisa
+        run: |
+          erros=0
+          while IFS= read -r f; do
+            python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f" \
+              || { echo "::error file=$f::YAML invalido"; erros=1; }
+          done < <(find . \( -name '*.yaml' -o -name '*.yml' \) -not -path './.git/*')
+          exit $erros
+
+      # -----------------------------------------------------------------------
+      # O teste que teria pego a quebra das tasks.
+      #
+      # Todo perfil selecionavel PRECISA resolver os campos que os scripts leem.
+      # Se um deles passar a vir por heranca e algum leitor nao souber resolver,
+      # isto falha aqui em vez de falhar na maquina de quem for compilar.
+      # -----------------------------------------------------------------------
+      - name: Cada perfil resolve os campos que os scripts usam
+        run: |
+          perfis=$(python3 env/doctor.py --list | tail -n +2 | awk '{print $1}')
+          [ -n "$perfis" ] || { echo "::error::nenhum perfil encontrado"; exit 1; }
+          erros=0
+          for p in $perfis; do
+            for campo in ros.distro os.python os.release; do
+              valor=$(python3 env/doctor.py --get "$campo" --profile "$p" 2>&1) || {
+                echo "::error::perfil '$p' nao resolve '$campo': $valor"
+                erros=1
+                continue
+              }
+              echo "  $p  $campo = $valor"
+            done
+          done
+          exit $erros
+
+      # -----------------------------------------------------------------------
+      # O manifesto e a razao de ser deste repositorio. Um pin que aponta para
+      # uma tag inexistente so aparece quando alguem tenta montar o workspace.
+      # -----------------------------------------------------------------------
+      - name: Toda tag do evtol.repos existe no remoto
+        run: |
+          python3 - <<'PY'
+          import subprocess, sys, yaml
+          repos = yaml.safe_load(open("evtol.repos"))["repositories"]
+          falhas = []
+          for nome, r in sorted(repos.items()):
+              out = subprocess.run(
+                  ["git", "ls-remote", "--tags", "--refs", r["url"], r["version"]],
+                  capture_output=True, text=True, timeout=90)
+              ok = bool(out.stdout.strip())
+              print(f"  {'OK  ' if ok else 'FALTA'} {nome:<22} {r['version']}")
+              if not ok:
+                  falhas.append(f"{nome} {r['version']}")
+          if falhas:
+              print(f"::error::tags inexistentes: {', '.join(falhas)}")
+              sys.exit(1)
+          print(f"{len(repos)} repositorios, todas as tags resolvem.")
+          PY
+
+      - name: shellcheck (informativo)
+        continue-on-error: true
+        run: |
+          find . -name '*.sh' -not -path './.git/*' -print0 \
+            | xargs -0 shellcheck --severity=warning || true

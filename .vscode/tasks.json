@@ -209,6 +209,7 @@
                 "cbr2026:all",
                 "cbr2026:deps",
                 "cbr2026:fase1",
+                "cbr2026:fase3",
                 "cm204-evtol:all",
                 "cm204-evtol:cbr2025_fase4",
                 "cm204-evtol:deps",
@@ -229,6 +230,7 @@
             "type": "pickString",
             "options": [
                 "cbr2026:fase1",
+                "cbr2026:fase3",
                 "sae2026:mission_1",
                 "sae2026:mission_1_H",
                 "sae2026:mission_2",
