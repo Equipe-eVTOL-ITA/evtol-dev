@@ -556,7 +556,41 @@ def main() -> int:
     parser.add_argument(
         "--list", "-l", action="store_true", help="lista os perfis disponiveis"
     )
+    parser.add_argument(
+        "--get",
+        metavar="CAMPO",
+        help="imprime um campo do perfil resolvido, ex.: --get ros.distro. "
+        "Existe para que scripts de shell nao precisem ler o YAML por conta "
+        "propria.",
+    )
     args = parser.parse_args()
+
+    # --get: uma saida legivel por shell.
+    #
+    # POR QUE ISTO EXISTE, e nao um `yaml.safe_load` em cada script.
+    #
+    # Antes da heranca, `ros_env.sh` e `setup.sh` liam o perfil com um
+    # `yaml.safe_load` proprio, cada um com tres linhas de Python embutidas no
+    # bash. Funcionava porque todo campo estava no mesmo arquivo.
+    #
+    # No dia em que `ros.distro` passou a vir de `_common-humble.yaml` por
+    # `extends`, os dois pararam de encontra-lo -- e o sintoma foi TODA task do
+    # VSCode falhando com "o perfil nao declara ros.distro". O doctor continuava
+    # verde, porque so ele sabia resolver a heranca.
+    #
+    # A licao nao e "faltou testar as tasks": e que havia TRES implementacoes de
+    # "ler o perfil" e so uma foi ensinada. Agora ha uma.
+    if args.get:
+        name = resolve_profile(args.profile)
+        valor = load_profile(name)
+        for parte in args.get.split("."):
+            if not isinstance(valor, dict) or parte not in valor:
+                sys.exit(
+                    f"ERRO: o perfil '{name}' nao declara '{args.get}'."
+                )
+            valor = valor[parte]
+        print(valor)
+        return 0
 
     if args.list:
         print("Perfis disponiveis:")
