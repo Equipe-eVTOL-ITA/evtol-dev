@@ -68,28 +68,20 @@ apt:
     ros-humble-vision-msgs: "*"
     ros-humble-cv-bridge: "*"
 
-    # --- Behavior Trees --------------------------------------------------
-    # Necessário para as fases que usam BT em vez de FSM. O `stdbt` e as
-    # missões geradas com `new_mission.sh --engine bt` dependem dele.
-    #
-    # A VARIANTE IMPORTA, e é por isso que está aqui em vez de ficar só a cargo
-    # do rosdep: existem dois pacotes, e o nome do errado é mais intuitivo que o
-    # do certo.
-    #
-    #   ros-humble-behaviortree-cpp      -> v4  <- este
-    #   ros-humble-behaviortree-cpp-v3   -> v3, API incompatível
-    #
-    # (No rosdistro o REPOSITÓRIO chama-se `behaviortree_cpp_v4`, mas o PACOTE
-    # que ele produz é `behaviortree_cpp` sem sufixo. Declarar
-    # `behaviortree_cpp_v4` no package.xml falha no rosdep.)
-    ros-humble-behaviortree-cpp: "4.*"     # verificado: 4.9.1-1jammy
-
   forbidden:
+    # --- Behavior Trees ---------------------------------------------------
+    # O BehaviorTree.CPP vem da FONTE, pelo evtol.repos, e não do apt.
+    ros-humble-behaviortree-cpp: >-
+      O pacote apt da v4 (4.9.1) está QUEBRADO: instala a biblioteca em
+      lib/x86_64-linux-gnu/ enquanto o ament_cmake_export_libraries dele a
+      procura em lib/. O próprio find_package(behaviortree_cpp) aborta com
+      "exports the library 'behaviortree_cpp' which couldn't be found".
+      Verificado nesta máquina e no CI. O workspace compila da fonte, pinado
+      no evtol.repos; ter o do apt instalado só reintroduz a ambiguidade.
     ros-humble-behaviortree-cpp-v3: >-
-      É a v3 do BehaviorTree.CPP, com API incompatível com a v4 que o `stdbt`
-      usa. O nome com sufixo parece o mais recente e é o contrário: o pacote
-      sem sufixo é que traz a v4. Instalados juntos, qual dos dois o CMake
-      encontra depende da ordem de busca.
+      É a v3, com API incompatível com a v4 que o `stdbt` usa. O nome com
+      sufixo parece o mais recente e é o contrário: o pacote sem sufixo é que
+      traz a v4. Não instale nenhum dos dois: o workspace compila da fonte.
 
     # Instalar qualquer um destes junto com o Garden quebra a simulação EM
     # SILÊNCIO. O valor é a explicação mostrada quando o doctor encontra o
