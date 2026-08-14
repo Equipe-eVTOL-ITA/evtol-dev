@@ -53,6 +53,8 @@ usados, sem cópia — cópia deriva, e já derivou.
         │   ├── sae2026/                ← SAE 2026 competition
         │   │   ├── scripts/            ← competition-specific simulation scripts
         │   │   └── mission_1/ ...      ← um ROS2 package por missão
+        │   ├── cbr2026/                ← CBR 2026 competition (fase1, fase3, fase4)
+        │   ├── ensaio_em_voo/          ← ensaios de voo (translação, cabeceio)
         │   └── telemetry_handler/      ← (independent project)
         ├── build/                      ← colcon build artifacts (auto-generated)
         ├── install/                    ← colcon install space (auto-generated)

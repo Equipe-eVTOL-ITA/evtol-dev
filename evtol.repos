@@ -192,6 +192,24 @@ repositories:
     # aparece. O CI de cada biblioteca prova que ELA compila, nao que a missao
     # continua compilando com ela.
 
+  ensaio_em_voo:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/ensaio_em_voo.git
+    version: v0.1.0
+    # Ensaios de voo: manobras minimas que exercitam UMA capacidade do drone de
+    # cada vez -- teste_grid_quadrado a translacao, teste_yaw o cabeceio --
+    # para rodar antes de uma missao de competicao. Uma missao falha por muitos
+    # motivos ao mesmo tempo e no meio da prova nao da para saber qual.
+    #
+    # Fica na camada 5 junto com as competicoes, e nao na 3 com o stdstates,
+    # porque e um CONSUMIDOR folha: usa tudo abaixo e ninguem o usa. A
+    # diferenca para uma competicao e so o calendario.
+    #
+    # Estava fora deste manifesto embora ja estivesse no src/ das maquinas do
+    # time -- e o repositorio no GitHub existia VAZIO, com o remote configurado
+    # e nenhum commit. Quem montasse o workspace so a partir daqui nao teria
+    # com que checar o drone antes de voar a missao.
+
   # ---------- External ROS 2 dependencies ----------
   behaviortree_cpp:
     type: git
