@@ -541,6 +541,12 @@ fase1/
 escrever uma linha. É o esqueleto mínimo funcional, para você começar pela
 lógica da missão em vez de pelo boilerplate.
 
+> **Como modelar a missão daí para frente** está em dois documentos próprios,
+> escritos para quem nunca fez: **[FSM.md](FSM.md)** (o motor padrão, com um
+> exercício que acrescenta um estado seu) e **[BT.md](BT.md)** (Behavior Tree,
+> `new_mission.sh <fase> --engine bt`). Os dois motores executam os mesmos
+> estados do `stdstates`.
+
 Dentro do `.cpp` os pontos de extensão estão marcados com **`ACRESCENTE`**:
 
 | Onde | O que colocar |

@@ -28,6 +28,8 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 | [setup.sh](setup.sh) | Bootstrap: doctor → import → rosdep → build |
 | [docs/GUIA.md](docs/GUIA.md) | **Comece por aqui** — como o workspace funciona e como criar uma competição nova |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | O contrato: camadas, frames, tópicos, ambiente, git |
+| [docs/FSM.md](docs/FSM.md) | **Como fazer uma FSM** — do zero a um estado seu voando |
+| [docs/BT.md](docs/BT.md) | **Como fazer uma Behavior Tree** — a árvore em XML e os nós da equipe |
 | [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
 | [docs/gazebo_models_setup.md](docs/gazebo_models_setup.md) | Modelos e mundos customizados do Gazebo |
 | [scripts/](scripts/) | Scripts genéricos do workspace (bridge de imagem, ground station, garra) |

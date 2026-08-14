@@ -1,0 +1,6 @@
+Marcador do colcon: nada abaixo de referencia/ e compilado.
+
+Esta pasta guarda repositorios de competicoes antigas para CONSULTA. Eles
+contem pacotes com nomes que colidem com os do workspace atual (o cbr_2025
+tem o seu proprio telemetry_handler), e sem este arquivo o colcon aborta com
+"Duplicate package names not supported".
