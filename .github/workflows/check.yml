@@ -95,24 +95,46 @@ jobs:
       # O manifesto e a razao de ser deste repositorio. Um pin que aponta para
       # uma tag inexistente so aparece quando alguem tenta montar o workspace.
       # -----------------------------------------------------------------------
-      - name: Toda tag do evtol.repos existe no remoto
+      - name: Toda versao do evtol.repos existe no remoto
         run: |
           python3 - <<'PY'
-          import subprocess, sys, yaml
+          import re, subprocess, sys, tempfile, yaml
+
+          # A politica do manifesto aceita TAG ou HASH DE COMMIT. A primeira
+          # versao desta checagem so sabia resolver tag (`ls-remote --tags`), e
+          # um pin por hash -- legitimo, e o unico caminho para um repositorio
+          # sem tags -- reprovaria aqui com "tag inexistente".
+          HASH = re.compile(r"^[0-9a-f]{40}$")
+
+          def resolve(url, versao):
+              if HASH.match(versao):
+                  # Nao da para perguntar por um commit com ls-remote. A forma
+                  # barata e buscar so ele, com profundidade 1.
+                  with tempfile.TemporaryDirectory() as tmp:
+                      subprocess.run(["git", "init", "-q", tmp], check=True)
+                      out = subprocess.run(
+                          ["git", "-C", tmp, "fetch", "-q", "--depth", "1",
+                           url, versao],
+                          capture_output=True, text=True, timeout=180)
+                      return out.returncode == 0
+              out = subprocess.run(
+                  ["git", "ls-remote", "--tags", "--refs", url, versao],
+                  capture_output=True, text=True, timeout=90)
+              return bool(out.stdout.strip())
+
           repos = yaml.safe_load(open("evtol.repos"))["repositories"]
           falhas = []
           for nome, r in sorted(repos.items()):
-              out = subprocess.run(
-                  ["git", "ls-remote", "--tags", "--refs", r["url"], r["version"]],
-                  capture_output=True, text=True, timeout=90)
-              ok = bool(out.stdout.strip())
-              print(f"  {'OK  ' if ok else 'FALTA'} {nome:<22} {r['version']}")
+              versao = str(r["version"])
+              ok = resolve(r["url"], versao)
+              tipo = "hash" if HASH.match(versao) else "tag "
+              print(f"  {'OK  ' if ok else 'FALTA'} {nome:<22} {tipo} {versao}")
               if not ok:
-                  falhas.append(f"{nome} {r['version']}")
+                  falhas.append(f"{nome} {versao}")
           if falhas:
-              print(f"::error::tags inexistentes: {', '.join(falhas)}")
+              print(f"::error::versoes inexistentes: {', '.join(falhas)}")
               sys.exit(1)
-          print(f"{len(repos)} repositorios, todas as tags resolvem.")
+          print(f"{len(repos)} repositorios, todas as versoes resolvem.")
           PY
 
       - name: shellcheck (informativo)
