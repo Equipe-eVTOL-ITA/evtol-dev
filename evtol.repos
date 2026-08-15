@@ -255,7 +255,21 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.5.0   # a fase 4 atravessa o labirinto
+    version: v0.6.0   # a fase 4 no Gazebo, e a geometria dela medida
+    # O mundo do Gazebo e GERADO do mesmo YAML que a missao le, e a ponte
+    # gz->ROS do LIDAR passou a existir. Verificada de ponta a ponta: 502 dos
+    # 1080 raios com retorno dentro do labirinto.
+    #
+    # O LIDAR do x500_lidar_2d fica 12 cm A FRENTE do centro do drone, e o
+    # ajuste de scan devolvia essa posicao como se fosse a do drone -- erro
+    # sistematico maior que as folgas de 10 cm da fase. Medido no Gazebo; o
+    # sim2d nao pega, porque nele o sensor esta no centro por construcao.
+    #
+    # A geometria da fase e MEDIDA e nao suposta: janela de 0.60 m, paredes de
+    # 1.50 m, drone de ate 0.40 m. 0.50 m cabe geometricamente numa janela de
+    # 0.60 e mesmo assim nao passa -- a precisao da navegacao come a folga.
+    #
+    # A v0.5.0 trouxe a travessia do labirinto.
     # DEPENDE do maze_geometry, e por isso ele precede esta entrada aqui.
     #
     # A missao atravessa os seis comodos no sim2d e termina com SUCCESS. Com
