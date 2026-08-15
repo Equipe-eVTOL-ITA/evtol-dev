@@ -102,6 +102,31 @@ _evtol_ros_env() {
     venv_sp="$(echo "$ws_root"/.venv/lib/python3*/site-packages)"
     if [[ -d "$venv_sp" ]]; then
         export PYTHONPATH="$venv_sp${PYTHONPATH:+:$PYTHONPATH}"
+
+        # O ~/.local sai de cena por completo.
+        #
+        # Pôr o venv na frente do PYTHONPATH resolve os IMPORTS, mas o
+        # ~/.local continua em sys.path -- e isso basta para estragar coisas
+        # que não são imports. Dois casos medidos nesta máquina:
+        #
+        #   O `colcon test` de QUALQUER pacote Python do workspace falhava com
+        #   `No module named '_pytest.scope'`. Um `anyio` no ~/.local registra
+        #   um plugin de pytest que é carregado automaticamente e exige um
+        #   pytest mais novo que o do sistema. Nada disso aparece nos imports
+        #   da missão -- só na hora de rodar os testes.
+        #
+        #   O `numpy` que o workspace importava vinha do ~/.local. Por acaso
+        #   satisfazia o `>=1.24,<2` do perfil, então o doctor ficava verde e o
+        #   workspace dependia de um diretório que nenhum manifesto controla.
+        #
+        # Isto SÓ é seguro porque o `venv.sh` agora instala no venv sem
+        # enxergar o ~/.local -- antes disso, bloqueá-lo derrubava o numpy para
+        # a versão do sistema e violava o próprio perfil.
+        #
+        # Efeito colateral aceito: neste shell, scripts alheios ao workspace
+        # também deixam de ver o ~/.local. É o preço de o ambiente do workspace
+        # ser o ambiente do workspace.
+        export PYTHONNOUSERSITE=1
     fi
 
     return 0
