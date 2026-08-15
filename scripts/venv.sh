@@ -93,8 +93,23 @@ echo "Instalando o que o perfil exige:"
 printf '  %s\n' "${pacotes[@]}"
 echo
 
-"$venv_dir/bin/pip" install --quiet --upgrade pip
-"$venv_dir/bin/pip" install "${pacotes[@]}"
+# PYTHONNOUSERSITE: o pip NÃO pode enxergar o ~/.local ao decidir o que já está
+# satisfeito.
+#
+# O venv é criado com --system-site-packages, para enxergar o ROS. Isso também
+# deixa o ~/.local visível, e o pip então responde "already satisfied" para
+# qualquer coisa que o usuário tenha instalado lá por outro projeto — e NÃO
+# instala no venv.
+#
+# Medido nesta máquina: o `numpy>=1.24,<2` que o perfil exige nunca foi
+# instalado no venv, porque havia um numpy 1.26.4 no ~/.local. O doctor ficava
+# verde (ele mede a versão EFETIVA, e ela estava certa), mas o workspace
+# dependia de um diretório que nenhum manifesto controla. Bastaria o usuário
+# mexer no numpy por causa de outro projeto para a stack de visão quebrar em
+# silêncio — que é exatamente a classe de bug que este venv existe para
+# eliminar.
+PYTHONNOUSERSITE=1 "$venv_dir/bin/pip" install --quiet --upgrade pip
+PYTHONNOUSERSITE=1 "$venv_dir/bin/pip" install "${pacotes[@]}"
 
 echo
 echo "Pronto. O ros_env.sh já usa este venv automaticamente."
