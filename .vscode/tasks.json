@@ -153,6 +153,104 @@
         },
 
         {
+            "label": "sim2d: rodar uma fase",
+            "detail": "Simulador 2D + missão, sem Gazebo — segundos em vez de minutos",
+            "dependsOn": [ "sim2d: simulador", "sim2d: missão" ],
+            "problemMatcher": []
+        },
+        {
+            "label": "sim2d: simulador",
+            "detail": "O simulador 2D, configurado pelo config da própria fase",
+            "type": "shell",
+            // O mapa e a pose inicial saem do config/simulation.yaml da fase, e
+            // nao desta linha. Digita-los aqui criaria uma segunda copia deles,
+            // e a divergencia nao da erro: da um drone que comeca a missao
+            // acreditando estar noutro lugar.
+            "command": "P='${input:pacoteMissao}'; bash scripts/sim2d.sh \"${P#*:}\"",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+        {
+            "label": "sim2d: missão",
+            "detail": "A missão, falando com o simulador 2D em vez do Gazebo",
+            "type": "shell",
+            // Sem o launch: ele subiria rosbag e system_health, que aqui so
+            // atrapalham. O binario da missao e o MESMO que vai para o Gazebo e
+            // para o drone -- e esse e o ponto do simulador.
+            "command": "P='${input:pacoteMissao}'; source scripts/ros_env.sh && sleep 3 && ros2 run \"${P#*:}\" \"${P#*:}\" --ros-args --params-file \"$(ros2 pkg prefix ${P#*:})/share/${P#*:}/config/simulation.yaml\" -p groot2_port:=0.0",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+
+        {
+            "label": "fase4: Gazebo completo",
+            "detail": "Mundo + PX4 + agente DDS + ponte do LIDAR + missão, de uma vez",
+            // Duas etapas, e a ordem importa: o mundo e REGERADO ANTES de o
+            // Gazebo subir. Se o mapa mudou e o .sdf nao, o drone voa num
+            // labirinto diferente do que a missao acredita, e nada acusa.
+            //
+            // A geracao entra em SEQUENCIA porque ela TERMINA. Os tres
+            // processos de simulacao ficam de pe para sempre, e por isso vao
+            // juntos numa etapa PARALELA -- um `sequence` com eles travaria no
+            // primeiro, esperando um fim que nunca chega.
+            "dependsOrder": "sequence",
+            "dependsOn": [ "fase4: gerar o mundo", "fase4: subir a simulação" ],
+            "problemMatcher": []
+        },
+        {
+            "label": "fase4: subir a simulação",
+            "detail": "Os três processos que ficam de pé, em paralelo",
+            "dependsOn": [
+                "fase4: PX4 + Gazebo",
+                "fase4: agente DDS",
+                "fase4: missão + ponte do LIDAR"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "fase4: gerar o mundo",
+            "detail": "Deriva o labirinto do MESMO YAML que a missão lê",
+            "type": "shell",
+            "command": "source scripts/ros_env.sh && ros2 run sim2d gerar_sdf fase4:cbr2026_fase4.yaml --modelo --nome labirinto_fase4 -o ~/PX4-gazebo-models/models/labirinto_fase4/model.sdf",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "reveal": "silent", "close": true }
+        },
+        {
+            "label": "fase4: PX4 + Gazebo",
+            "detail": "SITL no mundo da fase 4, com o drone wanda",
+            "type": "shell",
+            "command": "bash src/cbr2026/scripts/simulate.sh fase4",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+        {
+            "label": "fase4: agente DDS",
+            "detail": "Micro XRCE-DDS Agent — ponte PX4 ↔ ROS 2",
+            "type": "shell",
+            "command": "bash src/cbr2026/scripts/agent.sh",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+        {
+            "label": "fase4: missão + ponte do LIDAR",
+            "detail": "gazebo.launch.py — a ponte gz→ROS do /scan, o bag e a missão",
+            "type": "shell",
+            "command": "source scripts/ros_env.sh && ros2 launch fase4 gazebo.launch.py",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+
+        {
             "label": "doctor",
             "detail": "Confere se esta máquina bate com o perfil de ambiente",
             "type": "shell",
@@ -193,6 +291,7 @@
             "options": [
                 "cbr2026:default",
                 "cbr2026:fase1",
+                "cbr2026:fase4",
                 "cm204-evtol:casa1",
                 "ensaio_em_voo:default",
                 "sae2026:default",
