@@ -143,6 +143,70 @@ repositories:
     # envolve-los inteiros daria um no que devolve SUCCESS nos dois casos e a
     # arvore perderia a informacao que importa.
 
+  # ---------- Layer 4: geometria pura e simulação ----------
+  #
+  # Duas bibliotecas sem ROS, testáveis em milissegundos, e um simulador. É o
+  # padrão que a `vision_geometry` estabeleceu: a geometria sai do nó, vira
+  # função, e passa a ser verificável contra números conferíveis à mão.
+  maze_geometry:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/maze_geometry.git
+    version: v0.1.0   # a planta como grafo e o ajuste de scan da fase 4
+    # A fase 4 DEPENDE deste pacote em tempo de compilação. Sem ele no
+    # manifesto, um clone limpo do workspace não constrói a fase.
+    #
+    # `casa.hpp` lê o MESMO YAML que o `sim2d` lê. Se a missão tivesse a própria
+    # cópia das dimensões, ela poderia navegar uma casa e o simulador desenhar
+    # outra -- e o sintoma seria "funciona no simulador e bate na arena", sem
+    # nada apontando para a causa. A convenção de offset das janelas é travada
+    # por teste contra valores calculados pelo `sim2d/mapa.py`.
+    #
+    # `scan_fit.hpp` deixa duas limitações EXPLÍCITAS na interface, em vez de
+    # escondidas: a ambiguidade de 90 graus de um cômodo retangular (que nenhum
+    # algoritmo resolve, porque a informação não está no scan) e a inutilidade
+    # do ajuste dentro do vão de uma janela.
+
+  slam_bridge:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/slam_bridge.git
+    version: 0946ce327c7c9aa067a93dde65b75b5c85aabab6
+    # PINADO POR HASH, e não por tag, porque o repositório não tem nenhuma tag.
+    # A política do manifesto aceita hash justamente para este caso; criar uma
+    # tag aqui marcaria uma versão num repositório que outra pessoa da equipe
+    # pode estar mantendo.
+    #
+    # É a última peça da cadeia de localização da fase 4:
+    #
+    #   LIDAR -> slam_toolbox -> [adaptador] -> slam_bridge -> EKF do PX4
+    #            (localization)   PoseWithCov    ENU -> NED
+    #                             -> PoseStamped
+    #
+    # Ele recebe `PoseStamped` em /slam/odometry e alimenta a
+    # `px4_ros2::LocalPositionMeasurementInterface`. A descrição dele diz
+    # "Visual Odometry", mas a interface é agnóstica à origem da pose -- o que
+    # entra aqui em 2026 vem do LIDAR, não de câmera.
+    #
+    # ATENÇÃO ANTES DO PRIMEIRO VOO: ele fixa a variância em 5 cm de posição e
+    # 3 graus de atitude, escritos no código. Para SLAM 2D num labirinto pequeno
+    # é plausível, mas é um número que o EKF leva a sério. Vale parametrizar.
+
+  sim2d:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/sim2d.git
+    version: v0.1.0   # simulador 2D que se faz passar pelo PX4
+    # Recebe trajectory_setpoint, publica vehicle_odometry, vehicle_status,
+    # timesync_status e um LaserScan por ray casting num mapa de paredes. O
+    # binário REAL da missão roda nele sem uma linha de alteração -- verificado
+    # subindo a classe `Drone` do drone_lib contra ele.
+    #
+    # A malha fecha na ESTIMATIVA, e não na verdade: comandar x=3.0 põe a
+    # estimativa do PX4 em 3.0, e o drone fica onde a estimativa estiver errada.
+    # Um simulador que levasse a verdade até o setpoint faria a deriva ser
+    # inofensiva -- validaria a lógica e esconderia o único risco que importa
+    # numa fase sem GPS.
+    #
+    # Não é dependência de compilação de ninguém: é ferramenta de verificação.
+
   # ---------- Cross-cutting ----------
   telemetry_handler:
     type: git
