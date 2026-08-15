@@ -151,7 +151,20 @@ repositories:
   maze_geometry:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/maze_geometry.git
-    version: v0.1.0   # a planta como grafo e o ajuste de scan da fase 4
+    version: v0.2.0   # o mapa declara o drone, e recusa janela por onde ele nao passa
+    # A CHECAGEM QUE FALTAVA, e que nenhuma navegacao substitui. Medido no
+    # model.sdf: um x500 tem 0.772 m de envergadura -- braco de 0.246 m mais
+    # meia-helice de 0.140 m -- e NAO passa por uma janela de 0.60 m. Faltam
+    # 8.6 cm de cada lado.
+    #
+    # Ficou invisivel porque o simulador modelava o drone como um circulo de
+    # raio 0.20 m, metade do real, e a bateria dava 100% com muita confianca
+    # para um drone que nao existe.
+    #
+    # Agora o mapa declara `drone: {envergadura, folga_minima}` e o `carregar`
+    # recusa a planta na carga, com o numero que falta na mensagem.
+    #
+    # A v0.1.0 trouxe a planta como grafo e o ajuste de scan da fase 4.
     # A fase 4 DEPENDE deste pacote em tempo de compilação. Sem ele no
     # manifesto, um clone limpo do workspace não constrói a fase.
     #
@@ -189,7 +202,20 @@ repositories:
   sim2d:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/sim2d.git
-    version: v0.1.1   # o lote aborta se a missao for recompilada no meio
+    version: v0.2.0   # colisao exata, e o mundo do Gazebo gerado do mesmo mapa
+    # COLISAO POR DISTANCIA PONTO-SEGMENTO, e nao por 16 raios. Raio nao
+    # enxerga QUINA: o perpendicular a uma parede com vao passa direto pelo vao,
+    # e os vizinhos batem longe -- o batente nao era medido por nenhum deles.
+    #
+    # Medido: um drone de raio 0.32 atravessava uma janela de 0.60 m,
+    # interferindo 2 cm de cada lado, com 100% de sucesso. Dois centimetros
+    # parecem pouco; as folgas desta fase sao de dez, e e deste detector que sai
+    # o numero que decide se a fase e possivel.
+    #
+    # E `gerar_sdf`, que tira o mundo do Gazebo do MESMO mapa em vez de deixar
+    # alguem desenhar uma terceira copia da planta.
+    #
+    # A v0.1.1 fez o lote abortar se a missao for recompilada no meio.
     # A v0.1.0 tinha um travessao duplo em comentario XML no package.xml -- que
     # e ilegal. O colcon nao conseguia le-lo, REBAIXAVA o pacote de
     # ros.ament_python para python puro, construia, instalava tudo no lugar
