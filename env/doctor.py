@@ -531,6 +531,56 @@ def check_git_repos(spec: dict, rep: Report) -> None:
                 rep.ok(raw_path, actual)
 
 
+def check_trabalho_solto(rep: Report) -> None:
+    """
+    Commits pendurados num repositorio em HEAD destacado.
+
+    O `vcs import` fixa a versao do manifesto, entao TODO repositorio do src/
+    fica em HEAD destacado por construcao. Commitar ali funciona, `git log`
+    mostra tudo, e o proximo `git checkout` -- ou o proximo `vcs import` --
+    leva o trabalho embora com um aviso de duas linhas que ninguem le.
+
+    Aconteceu comigo: dois commits da fase 4 ficaram pendurados sem ramo. So
+    percebi por acaso, ao rodar `git branch --show-current` e receber vazio.
+
+    Esta checagem nao reclama de HEAD destacado -- e o estado NORMAL aqui. Ela
+    reclama de HEAD destacado COM COMMITS que nao estao em ramo nenhum, que e o
+    unico caso em que ha algo a perder.
+    """
+    src = WS_ROOT / "src"
+    if not src.is_dir():
+        return
+
+    section("Trabalho nao ancorado no src/")
+    achou = False
+    for d in sorted(src.iterdir()):
+        if not (d / ".git").exists():
+            continue
+
+        rc, ramo = run(["git", "symbolic-ref", "--quiet", "--short", "HEAD"], cwd=d)
+        if rc == 0 and ramo.strip():
+            continue   # tem ramo: nada a perder
+
+        # Destacado. Ha commit aqui que nao esta em nenhum ramo nem tag?
+        rc, out = run(
+            ["git", "log", "--oneline", "HEAD", "--not", "--branches", "--tags"],
+            cwd=d)
+        soltos = [ln for ln in out.splitlines() if ln.strip()] if rc == 0 else []
+        if not soltos:
+            continue
+
+        achou = True
+        rep.fail(
+            d.name,
+            f"{len(soltos)} commit(s) em HEAD destacado, fora de qualquer ramo: "
+            + soltos[0][:60],
+            fix=f"cd src/{d.name} && git switch -c <ramo>",
+        )
+
+    if not achou:
+        rep.ok("src/", "nenhum commit pendurado em HEAD destacado")
+
+
 # --------------------------------------------------------------------------- #
 # Selecao de perfil
 # --------------------------------------------------------------------------- #
@@ -689,6 +739,7 @@ def main() -> int:
     check_pip(spec.get("pip"), rep)
     check_commands(spec.get("commands"), rep)
     check_git_repos(spec.get("git_repos"), rep)
+    check_trabalho_solto(rep)
     check_python_build(spec.get("pip"), rep)
     check_cv_api(spec.get("pip"), rep)
 
