@@ -229,10 +229,25 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.4.0   # acrescenta a fase 4, esqueleto em Behavior Tree
-    # Primeira fase modelada como arvore em vez de maquina de estados. As fases
-    # 1, 2 e 3 seguem em FSM -- a escolha e por fase, pelo --engine do
-    # new_mission.sh.
+    version: v0.5.0   # a fase 4 atravessa o labirinto
+    # DEPENDE do maze_geometry, e por isso ele precede esta entrada aqui.
+    #
+    # A missao atravessa os seis comodos no sim2d e termina com SUCCESS. Com
+    # deriva de odometria, 100% em todas as colunas ate 0.05 m por metro
+    # percorrido -- contra 0/3 da malha aberta a partir de 0.02, que e o piso
+    # medido com a mesma rota sem ler o LIDAR.
+    #
+    # A planta, a rota e o mundo do Gazebo saem todos de UM arquivo. Uma segunda
+    # copia daria o pior sintoma possivel: funciona no simulador, bate na arena,
+    # e cada arquivo esta certo sozinho.
+    #
+    # NADA no flight.yaml dela foi validado em voo, e o arquivo diz isso em
+    # maiusculas. As dimensoes do labirinto sao estimadas a partir das AREAS do
+    # edital -- toda folga citada depende delas.
+    #
+    # A v0.4.0 trouxe a fase 4 como esqueleto em Behavior Tree. Primeira fase
+    # modelada como arvore em vez de maquina de estados. As fases 1, 2 e 3
+    # seguem em FSM -- a escolha e por fase, pelo --engine do new_mission.sh.
     #
     # A v0.3.1 fez a fase 3 VOAR
     # A v0.3.0 compila mas nao funciona: o config pedia
