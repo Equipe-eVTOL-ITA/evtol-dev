@@ -166,29 +166,25 @@ repositories:
     # algoritmo resolve, porque a informação não está no scan) e a inutilidade
     # do ajuste dentro do vão de uma janela.
 
-  slam_bridge:
-    type: git
-    url: https://github.com/Equipe-eVTOL-ITA/slam_bridge.git
-    version: 0946ce327c7c9aa067a93dde65b75b5c85aabab6
-    # PINADO POR HASH, e não por tag, porque o repositório não tem nenhuma tag.
-    # A política do manifesto aceita hash justamente para este caso; criar uma
-    # tag aqui marcaria uma versão num repositório que outra pessoa da equipe
-    # pode estar mantendo.
-    #
-    # É a última peça da cadeia de localização da fase 4:
-    #
-    #   LIDAR -> slam_toolbox -> [adaptador] -> slam_bridge -> EKF do PX4
-    #            (localization)   PoseWithCov    ENU -> NED
-    #                             -> PoseStamped
-    #
-    # Ele recebe `PoseStamped` em /slam/odometry e alimenta a
-    # `px4_ros2::LocalPositionMeasurementInterface`. A descrição dele diz
-    # "Visual Odometry", mas a interface é agnóstica à origem da pose -- o que
-    # entra aqui em 2026 vem do LIDAR, não de câmera.
-    #
-    # ATENÇÃO ANTES DO PRIMEIRO VOO: ele fixa a variância em 5 cm de posição e
-    # 3 graus de atitude, escritos no código. Para SLAM 2D num labirinto pequeno
-    # é plausível, mas é um número que o EKF leva a sério. Vale parametrizar.
+  # slam_bridge: FORA DO MANIFESTO, de proposito, ate a Onda 4.
+  #
+  # O package.xml dele declara `<depend>Eigen3</depend>` -- o nome do pacote
+  # CMake, e nao a chave do rosdep, que e `eigen`. E exatamente o defeito que
+  # este time ja corrigiu no stdstates v0.1.1.
+  #
+  # O estrago nao fica nele. O `rosdep install` para na PRIMEIRA chave que nao
+  # resolve, entao NENHUMA dependencia de apt e instalada, e o CI de todo
+  # repositorio que constroi contra este manifesto passa a falhar com um erro
+  # de CMake noutro pacote -- medido: `Could NOT find ZeroMQ` no
+  # behaviortree_cpp, que nao tem relacao nenhuma com Eigen.
+  #
+  # Ele nao e usado por ninguem ainda: entra na Onda 4, junto com o adaptador
+  # de /pose para /slam/odometry, e ate la o package.xml pode ser corrigido no
+  # repositorio de origem.
+  #
+  #   type: git
+  #   url: https://github.com/Equipe-eVTOL-ITA/slam_bridge.git
+  #   version: 0946ce327c7c9aa067a93dde65b75b5c85aabab6
 
   sim2d:
     type: git
