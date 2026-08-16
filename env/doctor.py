@@ -530,6 +530,25 @@ def check_git_repos(spec: dict, rep: Report) -> None:
             else:
                 rep.ok(raw_path, actual)
 
+        # ── O que TEM de existir dentro do repositorio ──────────────────────
+        #
+        # O `expect_commit` ja garante isto por tabela: um commit fixo contem o
+        # que contem. Mas um hash nao DIZ o que ele garante -- quando ele falha,
+        # a mensagem e "no commit abc, esperado def", e quem le nao sabe o que
+        # esta perdendo, nem por que aquilo importa.
+        #
+        # `expect_paths` escreve a exigencia em palavras. E o que transforma
+        # "atualize o repositorio" em "falta o modelo do drone da fase 4".
+        for rel in cfg.get("expect_paths") or []:
+            if (path / rel).exists():
+                rep.ok(f"{raw_path}/{rel}", "presente")
+            else:
+                rep.fail(
+                    f"{raw_path}/{rel}",
+                    "nao existe neste repositorio",
+                    fix=cfg.get("fix", ""),
+                )
+
 
 def check_trabalho_solto(rep: Report) -> None:
     """
