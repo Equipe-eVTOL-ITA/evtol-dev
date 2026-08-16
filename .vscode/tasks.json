@@ -153,6 +153,40 @@
         },
 
         {
+            "label": "sim2d: rodar uma fase",
+            "detail": "Simulador 2D + missão, sem Gazebo — segundos em vez de minutos",
+            "dependsOn": [ "sim2d: simulador", "sim2d: missão" ],
+            "problemMatcher": []
+        },
+        {
+            "label": "sim2d: simulador",
+            "detail": "O simulador 2D, configurado pelo config da própria fase",
+            "type": "shell",
+            // O mapa e a pose inicial saem do config/simulation.yaml da fase, e
+            // nao desta linha. Digita-los aqui criaria uma segunda copia deles,
+            // e a divergencia nao da erro: da um drone que comeca a missao
+            // acreditando estar noutro lugar.
+            "command": "P='${input:pacoteMissao}'; bash scripts/sim2d.sh \"${P#*:}\"",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+        {
+            "label": "sim2d: missão",
+            "detail": "A missão, falando com o simulador 2D em vez do Gazebo",
+            "type": "shell",
+            // Sem o launch: ele subiria rosbag e system_health, que aqui so
+            // atrapalham. O binario da missao e o MESMO que vai para o Gazebo e
+            // para o drone -- e esse e o ponto do simulador.
+            "command": "P='${input:pacoteMissao}'; source scripts/ros_env.sh && sleep 3 && ros2 run \"${P#*:}\" \"${P#*:}\" --ros-args --params-file \"$(ros2 pkg prefix ${P#*:})/share/${P#*:}/config/simulation.yaml\" -p groot2_port:=0.0",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated", "clear": true, "showReuseMessage": false
+            }
+        },
+
+        {
             "label": "doctor",
             "detail": "Confere se esta máquina bate com o perfil de ambiente",
             "type": "shell",
@@ -193,6 +227,7 @@
             "options": [
                 "cbr2026:default",
                 "cbr2026:fase1",
+                "cbr2026:fase4",
                 "cm204-evtol:casa1",
                 "ensaio_em_voo:default",
                 "sae2026:default",

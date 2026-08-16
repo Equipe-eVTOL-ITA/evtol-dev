@@ -202,7 +202,16 @@ repositories:
   sim2d:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/sim2d.git
-    version: v0.2.0   # colisao exata, e o mundo do Gazebo gerado do mesmo mapa
+    version: v0.2.2   # o mundo do Gazebo que o PX4 aceita, com grama e luz
+    # A v0.2.0 gerava um mundo com so quatro plugins do Gazebo. Ele carregava, o
+    # `gz sdf -k` dizia "Valid" e o LIDAR publicava -- e o PX4 recusava armar com
+    # "Accel Sensor 0 missing", uma mensagem que nao menciona o mundo em lugar
+    # nenhum. Faltavam os sistemas de IMU, barometro, magnetometro e NavSat.
+    #
+    # A v0.2.2 tambem inverte o padrao de iluminacao: o mundo sai CLARO. A
+    # escuridao era fiel a prova e nao mudava um unico numero da simulacao -- o
+    # LIDAR nao se importa com luz e a fase nao tem camera --, mas impedia ver o
+    # drone voando, que e metade da razao de abrir o Gazebo.
     # COLISAO POR DISTANCIA PONTO-SEGMENTO, e nao por 16 raios. Raio nao
     # enxerga QUINA: o perpendicular a uma parede com vao passa direto pelo vao,
     # e os vizinhos batem longe -- o batente nao era medido por nenhum deles.

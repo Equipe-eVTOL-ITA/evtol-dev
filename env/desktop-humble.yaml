@@ -226,8 +226,20 @@ git_repos:
     fix: "git -C ~/PX4-Autopilot fetch --tags && git -C ~/PX4-Autopilot checkout v1.15.4"
 
   ~/PX4-gazebo-models:
-    expect_commit: "9e510f3"
-    fix: "git -C ~/PX4-gazebo-models fetch && git -C ~/PX4-gazebo-models checkout 9e510f3"
+    expect_commit: "492352b"
+    # O QUE ESTE COMMIT PRECISA CONTER, dito em palavras.
+    #
+    # O hash sozinho ja garantiria, mas ele nao EXPLICA: quando falha, a
+    # mensagem e "no commit abc, esperado def", e quem le nao sabe o que esta
+    # faltando nem por que aquilo importa.
+    #
+    # O `wanda` e o drone da fase 4. O x500 NAO SERVE ali: ele tem 0,772 m de
+    # envergadura e as janelas do labirinto tem 0,60 m -- faltam 8,6 cm de cada
+    # lado, e nao e apertado, e impossivel. Sem este modelo a fase 4 nao sobe.
+    expect_paths:
+      - models/wanda/model.sdf
+      - tools/gerar_wanda.py
+    fix: "git -C ~/PX4-gazebo-models fetch && git -C ~/PX4-gazebo-models checkout 492352b"
 
   ~/Micro-XRCE-DDS-Agent:
     # Verificado v3.0.1 na máquina que funciona.
