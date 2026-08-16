@@ -264,7 +264,23 @@ repositories:
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.6.0   # a fase 4 no Gazebo, e a geometria dela medida
+    version: v0.7.0   # a fase 4 roda no Gazebo pelo caminho de sempre
+    # `cbr2026:fase4` nas tasks genericas, como a fase 1. A ponte gz->ROS do
+    # LIDAR mora dentro do simulation.launch.py da fase: e a unica coisa que ela
+    # tem a mais, e fica invisivel de fora.
+    #
+    # O mundo e GERADO a cada simulacao, so com o labirinto e o chao, e o drone
+    # e o `wanda` -- o x500 nao passa por janelas de 0.60 m.
+    #
+    # O simulate.sh RECUSA comecar com px4, gz ou agente vivos da tentativa
+    # anterior. O `gz sim` sobrevive quando o PX4 morre, e a chamada que pede o
+    # spawn vai parar no servidor velho; o erro que aparece fala de
+    # GZ_SIM_RESOURCE_PATH, que esta certo, e o drone simplesmente nao aparece.
+    #
+    # EXIGE o modelo wanda no PX4-gazebo-models, que o perfil agora cobra por
+    # nome -- ver `expect_paths` em env/desktop-humble.yaml.
+    #
+    # A v0.6.0 trouxe a fase 4 ao Gazebo pela primeira vez.
     # O mundo do Gazebo e GERADO do mesmo YAML que a missao le, e a ponte
     # gz->ROS do LIDAR passou a existir. Verificada de ponta a ponta: 502 dos
     # 1080 raios com retorno dentro do labirinto.
