@@ -31,6 +31,7 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 | [docs/FSM.md](docs/FSM.md) | **Como fazer uma FSM** — do zero a um estado seu voando |
 | [docs/BT.md](docs/BT.md) | **Como fazer uma Behavior Tree** — a árvore em XML e os nós da equipe |
 | [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
+| [docs/VOO_SSH.md](docs/VOO_SSH.md) | **Voar pelo SSH** — rodar uma missão na Jetson do seu computador |
 | [docs/gazebo_models_setup.md](docs/gazebo_models_setup.md) | Modelos e mundos customizados do Gazebo |
 | [scripts/](scripts/) | Scripts genéricos do workspace (bridge de imagem, ground station, garra) |
 | [templates/scripts/](templates/scripts/) | Modelos para criar um repo de competição novo |
