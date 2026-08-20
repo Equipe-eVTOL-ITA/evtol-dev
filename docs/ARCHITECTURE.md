@@ -245,6 +245,15 @@ When in doubt, run a node and `ros2 topic list` against a live system before nam
 | `stdstates` | `TakeoffState`, `LandingState`, `NextWaypoints` | C++ |
 | `cv_nodes/*` | Vision nodes (`qrcode_detector`, `window_detector`) | Python |
 | `camera_publisher` | Camera image publisher node | Python |
+| `ozzy_bridge` | Ponte ROS 2 ↔ **ArduPilot** por um ESP32 (micro-ROS + MAVLink) | Python + C++ (firmware) |
+
+O `ozzy_bridge` é a exceção à regra de ouro 6, e por isso está listado aqui: o
+`drone_lib` é a única fronteira do **PX4**, mas o único projeto do time em
+**ArduPilot** precisa da sua própria. A Pixhawk 2.4.8 daquele projeto é FMUv2/v3
+e não tem espaço para o `AP_DDS`, então a única interface é MAVLink, e a
+conversão NED/FRD ↔ ENU/FLU acontece dentro do firmware do ESP32 — exatamente o
+papel que o `drone_lib` faz do lado do PX4. Nada acima dele toca NED/FRD, como
+manda a regra. Contrato completo em `src/ozzy_bridge/docs/CONTRATO.md`.
 
 ---
 
