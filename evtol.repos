@@ -37,6 +37,45 @@ repositories:
     # porque a dependencia nao esta declarada. O CI do stdstates reprovava
     # por causa disso, ao compilar o drone_lib pinado.
 
+  # ---------- Layer 1: ArduPilot hardware abstraction ----------
+  # O time voa PX4 em tudo. Este e o unico projeto em ArduPilot, e por isso
+  # tem uma camada 1 propria: o drone_lib nao serve aqui, porque ele fala
+  # px4_msgs por uXRCE-DDS, e do outro lado nao ha PX4.
+  ozzy_bridge:
+    type: git
+    url: https://github.com/Equipe-eVTOL-ITA/ozzy_bridge.git
+    version: v0.1.0   # primeira versao: compila nos dois distros, nunca voou
+    # A Pixhawk 2.4.8 e FMUv2/FMUv3 -- STM32F427, 1 MB de flash util (2 MB nas
+    # revisoes boas). O AP_DDS, que daria ROS 2 nativo no ArduPilot, nao cabe
+    # nessa build. Sobra MAVLink pela TELEM1, e a ponte e um ESP32 rodando
+    # micro-ROS de um lado e MAVLink do outro.
+    #
+    # O QUE ENTRA NO WORKSPACE E O QUE NAO ENTRA
+    #
+    # Este repositorio tem DUAS metades e so uma delas e pacote colcon:
+    #   ozzy_bridge/  pacote ROS 2 (link_monitor, teleop)  <- compilado aqui
+    #   firmware/     projeto PlatformIO do ESP32          <- ignorado pelo colcon
+    #
+    # O `firmware/` nao tem package.xml, entao o colcon nao o enxerga e o
+    # `vcs import` nao muda nada para quem nunca vai gravar a placa. Quem for
+    # gravar precisa do PlatformIO do INSTALADOR OFICIAL -- o `pip install
+    # platformio` nao cria o `~/.platformio/penv` que o micro_ros_platformio
+    # exige, e a falha so aparece minutos depois, sem mencionar pip.
+    #
+    # O firmware e compilado por distro (`pio run -e humble` / `-e jazzy`) e a
+    # distro TEM que casar com a da maquina que roda a maquina de estados.
+    # Cliente e workspace de distros diferentes conectam no agente, aparecem no
+    # `ros2 node list` e nao trocam mensagem nenhuma -- sem erro, sem aviso.
+    #
+    # ATENCAO AO QoS. /ozzy/pose, /ozzy/twist, /ozzy/battery e /ozzy/gps sao
+    # BEST_EFFORT. O default do rclpy e do rclcpp e RELIABLE, e um assinante
+    # RELIABLE nao recebe NADA de um publicador BEST_EFFORT -- o topico aparece
+    # no `ros2 topic list`, o `ros2 topic info` mostra o publicador, e o `echo`
+    # fica mudo. Verificado em Humble. Veja docs/CONTRATO.md do repositorio.
+    #
+    # Nao usa o MicroXRCEAgent como dependencia nova: e o MESMO binario ja
+    # pinado em v3.0.1 no env/<perfil>.yaml, na mesma porta 8888.
+
   # ---------- Layer 2: perception ----------
   camera_publisher:
     type: git
