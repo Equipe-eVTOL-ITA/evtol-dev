@@ -14,8 +14,9 @@ DERIVA do workspace.
 
     competicoes  -> diretorios em src/ que tem scripts/simulate.sh
     mundos       -> os rotulos do bloco `case` de cada simulate.sh
-    missoes      -> pacotes colcon de cada competicao
-    alvos        -> all, deps + os pacotes de cada competicao
+    missoes      -> pacotes com launch/simulation.launch.py
+    solo         -> pacotes com um launch de estacao de solo
+    alvos        -> all, deps, changed + TODO pacote colcon do workspace
 
 Rode depois de criar uma competicao ou uma missao. O `setup.sh` ja roda no
 final, e o `templates/new_mission.sh` deve roda-lo tambem.
@@ -43,6 +44,11 @@ TASKS = WS_ROOT / ".vscode" / "tasks.json"
 
 # Diretorios em src/ que nao sao competicoes do time.
 IGNORAR = {"px4_msgs", "px4_ros2_interface", "evtol-dev"}
+
+# Repositorios do manifesto que sao de TERCEIROS. Estao pinados e sao
+# compilaveis, mas nao sao codigo do time: o px4_ros2_interface sozinho traz
+# catorze pacotes `example_*` que ninguem daqui compila de proposito.
+TERCEIROS = {"px4_msgs", "px4_ros2_interface", "behaviortree_cpp"}
 
 
 def competicoes() -> list[str]:
@@ -96,6 +102,101 @@ def pacotes(comp: str) -> list[str]:
     return sorted(p for p in r.stdout.split() if p)
 
 
+def pacotes_do_workspace() -> list[str]:
+    """Todo pacote colcon de src/, sem qualificar por competicao.
+
+    POR QUE A LISTA DE BUILD DEIXOU DE SER `competicao:alvo`
+
+    Ela era qualificada como as outras, e isso escondia dois problemas.
+
+    Pacote que nao pertence a competicao nenhuma nao aparecia: camera_publisher,
+    cv_nodes, drone_lib, stdstates. Justamente os que mais se mexe, e os unicos
+    que quebram todas as missoes de uma vez -- nao havia como compila-los pela
+    task.
+
+    E `all` fazia a mesma coisa nos quatro prefixos, porque os build.sh das
+    competicoes rodam `colcon build` sobre o src/ inteiro. `cbr2026:all` e
+    `sae2026:all` eram o mesmo comando com um rotulo diferente.
+
+    O `scripts/build.sh` da raiz aceita nome de pacote e pronto, entao a lista
+    aqui e plana. A competicao nao entra porque nunca fez diferenca.
+    """
+    try:
+        r = subprocess.run(
+            ["colcon", "list", "--names-only", "--base-paths", str(SRC)],
+            capture_output=True, text=True, timeout=120, cwd=WS_ROOT,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if r.returncode != 0:
+        return []
+    return sorted({p for p in r.stdout.split() if p})
+
+
+def pacotes_dos_repos_do_manifesto() -> set[str]:
+    """Pacotes que vem dos repositorios listados no evtol.repos.
+
+    O evtol.repos e a fronteira entre "o codigo do time" e "o que por acaso
+    esta em src/". Usa-la aqui e o mesmo criterio que o scripts/build.sh usa
+    no --changed. Os repositorios de TERCEIROS ficam de fora: estao no
+    manifesto, mas nao sao o que alguem procura na lista de compilar.
+    """
+    manifesto = WS_ROOT / "evtol.repos"
+    if not manifesto.is_file():
+        return set()
+    try:
+        import yaml
+        repos = (yaml.safe_load(manifesto.read_text(encoding="utf-8")) or {}).get(
+            "repositories", {})
+    except Exception:
+        return set()
+
+    nomes: set[str] = set()
+    for repo in repos:
+        if repo in TERCEIROS:
+            continue
+        nomes.update(pacotes_de_base(SRC / repo))
+    return nomes
+
+
+def pacotes_de_base(base: Path) -> list[str]:
+    """Pacotes colcon sob um diretorio."""
+    if not base.is_dir():
+        return []
+    try:
+        r = subprocess.run(
+            ["colcon", "list", "--names-only", "--base-paths", str(base)],
+            capture_output=True, text=True, timeout=60, cwd=WS_ROOT,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return sorted(p for p in r.stdout.split() if p) if r.returncode == 0 else []
+
+
+# Os nomes de launch de solo em uso, do mais atual para o mais antigo. A mesma
+# lista esta em scripts/ground_station.sh, que e quem de fato os executa.
+LAUNCHES_DE_SOLO = ("ground.launch.py", "ground_station.launch.py",
+                    "groundstation.launch.py")
+
+
+def pacotes_de_solo(comp: str) -> list[str]:
+    """Pacotes da competicao que tem uma estacao de solo para subir.
+
+    A task "voo: ground station" oferecia a mesma lista das missoes -- dez
+    opcoes, e NENHUMA delas com um launch de solo. As dez falhavam igual, com
+    um "launch file not found" que parecia problema de compilacao.
+
+    Mesmo criterio das missoes: so entra na lista o que da para lancar.
+    """
+    base = SRC / comp
+    if not base.is_dir():
+        return []
+    return sorted(
+        d.name for d in base.iterdir()
+        if any((d / "launch" / nome).is_file() for nome in LAUNCHES_DE_SOLO)
+    )
+
+
 def missoes(comp: str) -> list[str]:
     """Pacotes da competicao que sao MISSAO de verdade.
 
@@ -134,15 +235,32 @@ def montar_inputs() -> list[dict]:
     comps = competicoes()
 
     mundos_q: list[str] = []
-    alvos_q: list[str] = []
     missoes_q: list[str] = []
+    solo_q: list[str] = []
     for c in comps:
         mundos_q += [f"{c}:{m}" for m in mundos(c)]
-        alvos_q += [f"{c}:all", f"{c}:deps"] + [f"{c}:{p}" for p in pacotes(c)]
         missoes_q += [f"{c}:{m}" for m in missoes(c)]
+        solo_q += pacotes_de_solo(c)
     mundos_q = sorted(set(mundos_q))
-    alvos_q = sorted(set(alvos_q))
     missoes_q = sorted(set(missoes_q))
+    # Nao qualificado: ha um input so, entao nao existe combinacao invalida a
+    # evitar -- que era a unica razao de qualificar os outros.
+    solo_q = sorted(set(solo_q))
+
+    # Os tres primeiros sao alvos do scripts/build.sh, nao pacotes.
+    #
+    # Depois deles vem os pacotes DO MANIFESTO, e so entao o resto.
+    #
+    # A ordem importa porque a lista tem 60 itens e o VS Code a mostra inteira:
+    # src/ guarda tambem trabalho legado (itajuba_*, sae_*, cbr2025_fase4) e os
+    # catorze `example_*` que vem dentro do px4_ros2_interface. Deixa-los de
+    # fora seria mentir -- sao compilaveis, e um dia alguem vai precisar de um.
+    # Mas eles nao podem ficar na frente do que o time compila todo dia.
+    todos = pacotes_do_workspace()
+    do_manifesto = pacotes_dos_repos_do_manifesto()
+    alvos_q = (["all", "deps", "changed"]
+               + [p for p in todos if p in do_manifesto]
+               + [p for p in todos if p not in do_manifesto])
 
     def pick(id_, desc, opts, default=None):
         opts = opts or [""]
@@ -157,11 +275,26 @@ def montar_inputs() -> list[dict]:
     return [
         # O default e so o valor pre-selecionado; qualquer opcao da lista serve.
         pick("mundo", "Mundo do Gazebo (competição:mundo)", mundos_q, "sae2026:sae1"),
-        pick("alvoBuild", "O que compilar (competição:alvo)", alvos_q, "sae2026:all"),
+        pick("alvoBuild", "O que compilar (pacote, ou all/deps/changed)",
+             alvos_q, "changed"),
         # Qualificado tambem, para dizer de que competicao a missao e. A task
         # descarta a parte antes do ":" antes de chamar o ros2 launch.
         pick("pacoteMissao", "Missão (competição:missão)", missoes_q,
              "sae2026:mission_1"),
+        pick("pacoteGround", "Estação de solo (pacote)", solo_q, "fase3"),
+        # Texto livre, e nao lista.
+        #
+        # A lista suspensa cobre o que existe AGORA. Um pacote criado hoje so
+        # aparece nela depois de rodar este script, e quem acabou de criar a
+        # missao e justamente quem precisa compila-la. Este input aceita
+        # qualquer nome -- e varios, separados por espaco -- sem esperar
+        # sincronizacao nenhuma. O build.sh valida e sugere se errar.
+        {
+            "id": "pacotesDigitados",
+            "description": "Pacote(s) a compilar, separados por espaço",
+            "type": "promptString",
+            "default": "",
+        },
     ]
 
 
@@ -222,7 +355,9 @@ def main() -> int:
 
     print("Tasks do VS Code sincronizadas:")
     for i in novos:
-        print(f"  {i['id']:14} {', '.join(i['options'])}")
+        # promptString e texto livre: nao tem 'options'.
+        opcoes = ", ".join(i["options"]) if "options" in i else "(texto livre)"
+        print(f"  {i['id']:16} {opcoes}")
     return 0
 
 

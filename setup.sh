@@ -29,11 +29,12 @@ skip_doctor=0
 
 usage() {
     cat <<'EOF'
-Uso: setup.sh [--profile <nome>] [--skip-doctor]
+Uso: setup.sh [--profile <nome>] [--skip-doctor] [--current]
 
   --profile <nome>   perfil de ambiente (ex.: desktop-humble).
                      Se omitido, usa o conteúdo de .evtol-profile.
                      Liste os disponíveis com: ./doctor.sh --list
+  --current          mostra o perfil em uso nesta máquina e sai.
   --skip-doctor      pula a verificação de ambiente. NÃO use isso para
                      "resolver" uma falha do doctor — a falha é real.
 EOF
@@ -42,6 +43,9 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --profile|-p) profile="${2:-}"; shift 2 ;;
+        # Delegado ao doctor, que ja sabe resolver a heranca e a origem. Uma
+        # implementacao de "qual perfil e este", nao duas.
+        --current|-c) exec "$(dirname "${BASH_SOURCE[0]}")/doctor.sh" --current ;;
         --skip-doctor) skip_doctor=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "ERRO: argumento desconhecido: $1" >&2; usage >&2; exit 2 ;;

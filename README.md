@@ -33,9 +33,33 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 | [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
 | [docs/VOO_SSH.md](docs/VOO_SSH.md) | **Voar pelo SSH** — rodar uma missão na Jetson do seu computador |
 | [docs/gazebo_models_setup.md](docs/gazebo_models_setup.md) | Modelos e mundos customizados do Gazebo |
-| [scripts/](scripts/) | Scripts genéricos do workspace (bridge de imagem, ground station, garra) |
+| [scripts/](scripts/) | Scripts genéricos do workspace — veja a tabela abaixo |
 | [templates/scripts/](templates/scripts/) | Modelos para criar um repo de competição novo |
 | [.vscode/tasks.json](.vscode/tasks.json) | Tasks do VSCode — já no lugar certo, sem cópia |
+
+## Os scripts
+
+Todos são chamados pelas tasks do VSCode, e todos funcionam direto no terminal.
+
+| Script | O que faz |
+|---|---|
+| [scripts/build.sh](scripts/build.sh) | Compila um pacote, vários, `--all`, `--deps` ou `--changed` |
+| [scripts/parar.sh](scripts/parar.sh) | Encerra a simulação inteira, com SIGINT antes de SIGKILL, e confere |
+| [scripts/agent.sh](scripts/agent.sh) | Micro XRCE-DDS Agent — UDP na simulação, `--serial` no voo |
+| [scripts/qgc.sh](scripts/qgc.sh) | Abre o QGroundControl, procurando o AppImage onde ele estiver |
+| [scripts/ground_station.sh](scripts/ground_station.sh) | Sobe a estação de solo de uma missão |
+| [scripts/sim2d.sh](scripts/sim2d.sh) | Simulador 2D; com `--com-missao`, sobe a missão junto |
+| [scripts/image_bridge.sh](scripts/image_bridge.sh) | Câmeras do Gazebo → tópicos ROS 2 |
+| [scripts/ros_env.sh](scripts/ros_env.sh) | Carrega o ROS da distro do perfil desta máquina (**sourcear**) |
+| [scripts/processos.sh](scripts/processos.sh) | De que uma simulação é feita — lido pelo `parar.sh` |
+| [scripts/sync_tasks.py](scripts/sync_tasks.py) | Regenera as listas das tasks a partir do que existe em `src/` |
+
+Dois deles resolvem coisas que costumavam ser digitadas à mão:
+
+```bash
+./scripts/build.sh --changed        # compila só os repos com trabalho solto
+./scripts/agent.sh --serial         # o agente em SERIAL, que é como o voo usa
+```
 
 ## Os dois manifestos
 
@@ -51,7 +75,8 @@ ninguém sabe por quê"*.
 | `env/<perfil>.yaml` | Ambiente — distro, Gazebo, bridge, PX4, apt, pip | `doctor.sh` |
 
 ```bash
-./doctor.sh --list                      # perfis disponíveis
+./doctor.sh --list                      # perfis disponíveis (o atual leva '*')
+./doctor.sh --current                   # em qual perfil ESTA máquina está
 ./doctor.sh --profile desktop-humble    # verifica esta máquina
 ```
 
@@ -69,6 +94,24 @@ versionado). Em scripts e tasks, use:
 
 ```bash
 source scripts/ros_env.sh
+```
+
+Para saber em qual perfil você está — a pergunta que aparece justamente quando
+algo se comporta de forma inesperada:
+
+```bash
+./doctor.sh --current
+```
+
+Ou a task **perfil**. O `source scripts/ros_env.sh` também exporta
+`EVTOL_PROFILE` no shell.
+
+Se esta máquina guarda o QGroundControl num lugar próprio, declare-o no perfil
+em vez de decorar o caminho:
+
+```yaml
+qgc:
+  path: ~/Downloads/apps/QGroundControl-x86_64.AppImage
 ```
 
 ## Criando um repo de competição novo
