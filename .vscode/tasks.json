@@ -239,6 +239,28 @@
         },
 
         {
+            "label": "voo: pré-voo",
+            "detail": "Com a missão no ar: confere o sistema RODANDO antes de armar",
+            "type": "shell",
+            // O docs/CONTRATOS.md garante que o codigo e a documentacao
+            // concordam. Esta task pega o caso em que os dois concordam e A
+            // MAQUINA faz outra coisa: o topico que ninguem publica, o QoS que
+            // nao casa, o intrinseco que continua sendo placeholder. Nenhuma
+            // dessas falhas imprime erro; todas produzem um sistema que sobe,
+            // nao reclama, e voa cego.
+            "command": "P='${input:pacoteMissao}'; bash scripts/preflight.sh \"${P#*:}\"",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "contratos: atualizar",
+            "detail": "Regenera o docs/CONTRATOS.md a partir do código",
+            "type": "shell",
+            "command": "python3 scripts/contratos.py",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
             "label": "voo: QGroundControl",
             "detail": "Abre o QGC — procura o AppImage onde quer que ele esteja",
             "type": "shell",

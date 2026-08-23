@@ -28,6 +28,7 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 | [setup.sh](setup.sh) | Bootstrap: doctor → import → rosdep → build |
 | [docs/GUIA.md](docs/GUIA.md) | **Comece por aqui** — como o workspace funciona e como criar uma competição nova |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | O contrato: camadas, frames, tópicos, ambiente, git |
+| [docs/CONTRATOS.md](docs/CONTRATOS.md) | **Gerado do código** — o que o sistema assume, para consultar depurando um voo |
 | [docs/FSM.md](docs/FSM.md) | **Como fazer uma FSM** — do zero a um estado seu voando |
 | [docs/BT.md](docs/BT.md) | **Como fazer uma Behavior Tree** — a árvore em XML e os nós da equipe |
 | [docs/SETUP.md](docs/SETUP.md) | Instalação da máquina, do zero |
@@ -45,6 +46,8 @@ Todos são chamados pelas tasks do VSCode, e todos funcionam direto no terminal.
 |---|---|
 | [scripts/build.sh](scripts/build.sh) | Compila um pacote, vários, `--all`, `--deps` ou `--changed` |
 | [scripts/parar.sh](scripts/parar.sh) | Encerra a simulação inteira, com SIGINT antes de SIGKILL, e confere |
+| [scripts/preflight.sh](scripts/preflight.sh) | Com a missão no ar: confere o sistema **rodando** antes de armar |
+| [scripts/contratos.py](scripts/contratos.py) | Regenera o `docs/CONTRATOS.md` a partir do código |
 | [scripts/agent.sh](scripts/agent.sh) | Micro XRCE-DDS Agent — UDP na simulação, `--serial` no voo |
 | [scripts/qgc.sh](scripts/qgc.sh) | Abre o QGroundControl, procurando o AppImage onde ele estiver |
 | [scripts/ground_station.sh](scripts/ground_station.sh) | Sobe a estação de solo de uma missão |
@@ -59,6 +62,50 @@ Dois deles resolvem coisas que costumavam ser digitadas à mão:
 ```bash
 ./scripts/build.sh --changed        # compila só os repos com trabalho solto
 ./scripts/agent.sh --serial         # o agente em SERIAL, que é como o voo usa
+```
+
+## As hipóteses do sistema
+
+Frames, tópicos, QoS, frequências, tamanho de imagem, como a ROI é feita, qual
+comando do PX4 é usado: tudo isso estava documentado, e tudo documentado *no
+lugar onde foi escrito* — espalhado por sessenta arquivos, em comentários. Na
+hora de depurar um voo de verdade não havia onde olhar.
+
+Escrever um documento único só trocaria o problema de lugar: ele estaria certo
+por uma semana e depois passaria a mentir — e um documento errado custa mais
+caro do que documento nenhum, porque as pessoas confiam nele.
+
+Por isso são **três camadas, e nenhuma delas é um documento escrito à mão**:
+
+| Camada | O quê | Pega |
+|---|---|---|
+| [docs/CONTRATOS.md](docs/CONTRATOS.md) | Gerado do código; `--check` no CI | Código e documentação discordando |
+| Testes de contrato | `colcon test` | A hipótese mudando sem ninguém notar |
+| [scripts/preflight.sh](scripts/preflight.sh) | Com o sistema no ar | Os dois concordando e **a máquina** fazendo outra coisa |
+
+```bash
+python3 scripts/contratos.py       # regenera a doc (task: contratos: atualizar)
+./scripts/preflight.sh fase1       # antes de armar (task: voo: pré-voo)
+```
+
+Para acrescentar uma explicação à doc, escreva um bloco-âncora **no código**,
+onde ela pertence — o gerador a transcreve:
+
+```cpp
+// >>> CONTRATO frames.exemplo
+// A explicação, que continua morando junto do código que ela descreve.
+// <<< CONTRATO
+```
+
+### Onde eu mexo para mudar como o drone anda?
+
+A seção *Onde se comanda movimento* do `docs/CONTRATOS.md` lista, gerado do
+código, todo ponto onde nasce um comando de deslocamento. E os estados de
+navegação passam por uma política escolhida no YAML da missão:
+
+```yaml
+motion_policy: axial     # gira parado, só então avança; nunca anda de lado
+landing_mode:  s_curve   # exponencial (padrão) | px4 | s_curve
 ```
 
 ## Os dois manifestos

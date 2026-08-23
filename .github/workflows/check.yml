@@ -171,6 +171,21 @@ jobs:
           PY
 
       # -----------------------------------------------------------------------
+      # O docs/CONTRATOS.md e GERADO do codigo. Se ele defasar, passa a mentir
+      # -- e um documento errado custa mais caro do que documento nenhum,
+      # porque as pessoas confiam nele. Este passo e o que impede a defasagem.
+      #
+      # Precisa do src/ importado, que este repositorio nao versiona. O import
+      # e raso e usa as versoes PINADAS do manifesto, que o passo seguinte ja
+      # verifica existirem.
+      # -----------------------------------------------------------------------
+      - name: docs/CONTRATOS.md esta em dia com o codigo
+        run: |
+          python3 -m pip install --quiet vcstool
+          vcs import --shallow src < evtol.repos
+          python3 scripts/contratos.py --check
+
+      # -----------------------------------------------------------------------
       # O manifesto e a razao de ser deste repositorio. Um pin que aponta para
       # uma tag inexistente so aparece quando alguem tenta montar o workspace.
       # -----------------------------------------------------------------------
