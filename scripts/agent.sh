@@ -63,6 +63,27 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Um agente por vez.
+#
+# Esta checagem morava no guard do simulate.sh, e no lugar errado: o simulate.sh
+# sobe o PX4, nao o agente, e a task "sim: iniciar" roda os dois EM PARALELO --
+# entao o agente recem-nascido fazia o simulate.sh recusar a si mesmo.
+#
+# O conflito real e aqui: dois agentes na mesma porta dao
+# `bind error | port: 8888, errno: 98`, e o segundo morre. Como o primeiro
+# continua servindo, encerrar em silencio e o certo -- a task "sim: iniciar"
+# rodada duas vezes nao deve virar erro vermelho por causa disso.
+# shellcheck source=scripts/processos.sh
+source "$ws_root/scripts/processos.sh"
+
+vivos="$(evtol_pids_do_grupo agente | tr '\n' ' ')"
+if [[ -n "${vivos// /}" ]]; then
+    echo "Ja ha um agente rodando (pid${vivos% }). Nada a fazer."
+    echo "Para trocar de modo (UDP <-> serial), pare o atual antes:"
+    echo "    ./scripts/parar.sh --so agente"
+    exit 0
+fi
+
 if ! command -v MicroXRCEAgent >/dev/null 2>&1; then
     echo "ERRO: MicroXRCEAgent não encontrado." >&2
     echo "      Veja docs/SETUP.md seção 5. O ./doctor.sh também confere isso." >&2

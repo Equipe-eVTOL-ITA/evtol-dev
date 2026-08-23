@@ -221,11 +221,31 @@ evtol_nome_do_pid() {
 # -----------------------------------------------------------------------------
 # Há simulação rodando? Usado pelo guard dos simulate.sh.
 #
+#     evtol_simulacao_viva [grupo...]     (padrão: px4 gazebo)
+#
 # Ecoa os grupos ocupados (vazio = nada rodando) e devolve 0 se achou algo.
+#
+# POR QUE O AGENTE NÃO ESTÁ NO PADRÃO
+#
+# Ele já esteve, e isso quebrava a task "sim: iniciar". O VS Code roda as
+# tasks de um `dependsOn` EM PARALELO: o agente e o simulate.sh sobem juntos,
+# o agente ganha a corrida, e o guard do simulate.sh via o agente recém-nascido
+# como prova de que "já há simulação rodando". A task recusava a si mesma, e a
+# mensagem mandava rodar o "parar tudo" -- que resolvia por um instante, até a
+# corrida acontecer de novo.
+#
+# O erro de fundo era de escopo. O guard existe por causa do
+# `bind error | port: 8888, errno: 98`, que é o AGENTE falhando ao subir com
+# outro agente já na porta. Mas quem sobe o agente é o agent.sh, não o
+# simulate.sh -- e um agente de pé é justamente o que o PX4 precisa encontrar.
+# Cada script guarda o que ele mesmo inicia; ver a checagem no agent.sh.
 # -----------------------------------------------------------------------------
 evtol_simulacao_viva() {
+    local grupos=("$@")
+    [[ ${#grupos[@]} -eq 0 ]] && grupos=(px4 gazebo)
+
     local grupo achou=1
-    for grupo in px4 gazebo agente; do
+    for grupo in "${grupos[@]}"; do
         if [[ -n "$(evtol_pids_do_grupo "$grupo")" ]]; then
             echo "$grupo"
             achou=0
