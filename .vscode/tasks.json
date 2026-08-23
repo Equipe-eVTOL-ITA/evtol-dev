@@ -352,6 +352,7 @@
             "description": "Estação de solo (pacote)",
             "type": "pickString",
             "options": [
+                "fase1",
                 "fase3"
             ],
             "default": "fase3"
