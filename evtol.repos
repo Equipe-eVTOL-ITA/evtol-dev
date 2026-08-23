@@ -23,7 +23,7 @@ repositories:
   drone_lib:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-    version: v0.3.0   # remove a API de gestos, que estava morta
+    version: v0.4.0   # remove a API de gestos, que estava morta
     # A v0.2.0 declara getHandGestures(), getHandLocation() e resetHands(), mas
     # as inscricoes nos topicos nunca eram criadas: as chamadas
     # create_subscription se perderam entre 2025 e 2026. Os getters devolviam
@@ -80,7 +80,7 @@ repositories:
   camera_publisher:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/camera_publisher.git
-    version: v0.1.1   # deps de pip movidas para env/<perfil>.yaml
+    version: v0.1.2   # deps de pip movidas para env/<perfil>.yaml
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
@@ -292,7 +292,7 @@ repositories:
   telemetry_handler:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/telemetry_handler.git
-    version: v0.1.1   # python3-tkinter -> python3-tk; opencv-python p/ o perfil
+    version: v0.2.0   # python3-tkinter -> python3-tk; opencv-python p/ o perfil
 
   # ---------- Layer 5: competition ----------
   sae2026:

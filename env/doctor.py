@@ -661,6 +661,24 @@ def load_profile(name: str, _vistos: set | None = None) -> dict:
     return spec
 
 
+def perfil_e_origem(explicit: str | None) -> tuple[str | None, str]:
+    """
+    O perfil em uso e DE ONDE ele veio, sem abortar quando nao ha nenhum.
+
+    A origem importa: um `--profile` na linha de comando e um `.evtol-profile`
+    no disco dao respostas diferentes para o mesmo workspace.
+    """
+    if explicit:
+        return explicit, "--profile na linha de comando"
+
+    marker = WS_ROOT / ".evtol-profile"
+    if marker.exists():
+        if name := marker.read_text().strip():
+            return name, f"{marker}"
+
+    return None, "nenhum perfil selecionado"
+
+
 def resolve_profile(explicit: str | None) -> str:
     if explicit:
         return explicit
@@ -692,6 +710,18 @@ def main() -> int:
         "--list", "-l", action="store_true", help="lista os perfis disponiveis"
     )
     parser.add_argument(
+        "--current",
+        "-c",
+        action="store_true",
+        help="mostra qual perfil esta em uso nesta maquina, e de onde ele veio",
+    )
+    parser.add_argument(
+        "--curto",
+        "-q",
+        action="store_true",
+        help="com --current, imprime so o nome (para uso em scripts)",
+    )
+    parser.add_argument(
         "--get",
         metavar="CAMPO",
         help="imprime um campo do perfil resolvido, ex.: --get ros.distro. "
@@ -699,6 +729,36 @@ def main() -> int:
         "propria.",
     )
     args = parser.parse_args()
+
+    # --current: qual perfil esta valendo aqui. Dava para listar os perfis e
+    # para escolher um, e nao para perguntar em qual voce esta.
+    if args.current:
+        name, origem = perfil_e_origem(args.profile)
+
+        if args.curto:
+            if name is None:
+                return 1
+            print(name)
+            return 0
+
+        if name is None:
+            print("Nenhum perfil selecionado nesta maquina.")
+            print()
+            print(f"  Disponiveis: {', '.join(available_profiles()) or '(nenhum)'}")
+            print("  Escolha um com: ./setup.sh --profile <nome>")
+            return 1
+
+        path = ENV_DIR / f"{name}.yaml"
+        spec = load_profile(name) if path.exists() else {}
+        print(f"perfil:    {_c(BOLD, name)}")
+        if desc := spec.get("description"):
+            print(f"           {_c(DIM, desc)}")
+        print(f"origem:    {origem}")
+        print(f"spec:      {path}" + ("" if path.exists() else "  (NAO EXISTE)"))
+        if distro := spec.get("ros", {}).get("distro"):
+            print(f"ros:       {distro}")
+        print(f"workspace: {WS_ROOT}")
+        return 0 if path.exists() else 1
 
     # --get: uma saida legivel por shell.
     #
@@ -728,10 +788,17 @@ def main() -> int:
         return 0
 
     if args.list:
+        # O atual leva um '*': listar sem dizer qual vale obriga a perguntar
+        # de novo.
+        atual, _ = perfil_e_origem(args.profile)
         print("Perfis disponiveis:")
         for name in available_profiles():
             data = yaml.safe_load((ENV_DIR / f"{name}.yaml").read_text()) or {}
-            print(f"  {name:<20} {data.get('description', '')}")
+            marca = "*" if name == atual else " "
+            print(f"{marca} {name:<20} {data.get('description', '')}")
+        if atual and atual not in available_profiles():
+            print()
+            print(f"AVISO: o perfil em uso ('{atual}') nao esta na lista acima.")
         return 0
 
     name = resolve_profile(args.profile)

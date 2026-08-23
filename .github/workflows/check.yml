@@ -91,6 +91,79 @@ jobs:
           done
           exit $erros
 
+      # O --current responde "em qual perfil eu estou". Se ele quebrar, quem
+      # descobre e alguem depurando um voo.
+      - name: O doctor sabe dizer qual perfil esta em uso
+        run: |
+          erros=0
+          # O --list agora marca o perfil atual com '*'; o sed o remove.
+          for p in $(python3 env/doctor.py --list | tail -n +2 | sed 's/^[* ] *//' | awk '{print $1}'); do
+            nome=$(python3 env/doctor.py --current --curto --profile "$p") || {
+              echo "::error::--current falhou para o perfil '$p'"; erros=1; continue; }
+            [ "$nome" = "$p" ] || {
+              echo "::error::--current devolveu '$nome' para o perfil '$p'"; erros=1; }
+            python3 env/doctor.py --current --profile "$p" >/dev/null || {
+              echo "::error::--current (longo) falhou para '$p'"; erros=1; }
+          done
+          # Sem perfil nenhum: tem de sair com erro, e nao com um nome errado.
+          if python3 env/doctor.py --current --curto >/dev/null 2>&1; then
+            echo "  (ha um .evtol-profile no repositorio? nao deveria)"
+          fi
+          exit $erros
+
+      # Nao roda o sync_tasks.py (precisa do colcon e do src/): confere que o
+      # tasks.json e JSON valido, que todo ${input:...} existe, e que nenhuma
+      # cadeia de dependsOn pergunta o mesmo input duas vezes.
+      - name: As tasks do VS Code sao coerentes
+        run: |
+          python3 - <<'PY'
+          import json, re, sys
+
+          texto = open(".vscode/tasks.json", encoding="utf-8").read()
+          dados = json.loads(re.sub(r"^\s*//.*$", "", texto, flags=re.M))
+
+          tasks = {t["label"]: t for t in dados["tasks"]}
+          inputs = {i["id"] for i in dados["inputs"]}
+          falhas = []
+
+          def citados(label, pilha=()):
+              if label in pilha:
+                  falhas.append(f"ciclo de dependsOn em '{label}'")
+                  return []
+              t = tasks.get(label)
+              if t is None:
+                  falhas.append(f"dependsOn aponta para task inexistente: '{label}'")
+                  return []
+              saida = []
+              for dep in t.get("dependsOn", []):
+                  saida += citados(dep, pilha + (label,))
+              saida += re.findall(r"\$\{input:(\w+)\}", t.get("command", ""))
+              return saida
+
+          for label in tasks:
+              vistos = citados(label)
+              for nome in set(vistos):
+                  if nome not in inputs:
+                      falhas.append(f"'{label}' usa ${{input:{nome}}}, que nao existe")
+                  # O VS Code resolve os inputs POR TASK. Duas tasks da mesma
+                  # cadeia citando o mesmo input = duas perguntas iguais.
+                  if vistos.count(nome) > 1:
+                      falhas.append(
+                          f"'{label}' pergunta '{nome}' {vistos.count(nome)} vezes")
+
+          for f in falhas:
+              print(f"::error::{f}")
+          sys.exit(1 if falhas else 0)
+          PY
+
+      # O docs/CONTRATOS.md e gerado do codigo; defasado, ele mente. Precisa do
+      # src/ importado, raso e nas versoes pinadas do manifesto.
+      - name: docs/CONTRATOS.md esta em dia com o codigo
+        run: |
+          python3 -m pip install --quiet vcstool
+          vcs import --shallow src < evtol.repos
+          python3 scripts/contratos.py --check
+
       # -----------------------------------------------------------------------
       # O manifesto e a razao de ser deste repositorio. Um pin que aponta para
       # uma tag inexistente so aparece quando alguem tenta montar o workspace.

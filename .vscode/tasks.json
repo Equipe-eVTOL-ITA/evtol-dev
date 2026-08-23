@@ -5,10 +5,12 @@
 // Ctrl+Shift+P -> "Tasks: Run Task", ou Ctrl+Shift+B para compilar.
 //
 // As tasks sao agrupadas por prefixo, entao a lista aparece ordenada:
-//     build            compilar
-//     sim: ...         simulacao
+//     build ...        compilar (pacote, all, deps, changed)
+//     sim: ...         simulacao no Gazebo
+//     sim2d: ...       simulador 2D, sem Gazebo
 //     voo: ...         coisas de voo real
 //     doctor           verificar o ambiente
+//     perfil           qual perfil de ambiente esta valendo aqui
 //
 // O BLOCO "inputs" NO FIM DESTE ARQUIVO E GERADO. Nao edite a mao:
 //
@@ -28,13 +30,31 @@
     "tasks": [
         {
             "label": "build",
-            "detail": "Compila um pacote (ou 'all' / 'deps') — Ctrl+Shift+B",
+            "detail": "Compila um pacote, ou all / deps / changed — Ctrl+Shift+B",
             "type": "shell",
-            // A opcao vem como "competicao:alvo"; ${A%%:*} pega a competicao e
-            // ${A#*:} pega o alvo. Assim uma escolha so ja diz as duas coisas,
-            // e nao existe combinacao invalida.
-            "command": "A='${input:alvoBuild}'; bash \"src/${A%%:*}/scripts/build.sh\" \"${A#*:}\"",
+            // O alvo e o NOME DO PACOTE, sem prefixo de competicao.
+            "command": "bash scripts/build.sh '${input:alvoBuild}'",
             "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": "$gcc",
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "build: pacote (digitado)",
+            "detail": "Compila o(s) pacote(s) que você digitar — aceita vários",
+            "type": "shell",
+            // A lista suspensa so conhece o que existia na ultima sincronizacao.
+            "command": "bash scripts/build.sh ${input:pacotesDigitados}",
+            "group": "build",
+            "problemMatcher": "$gcc",
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "build: só este pacote (sem dependências)",
+            "detail": "--packages-select: recompila só ele, para o ciclo curto",
+            "type": "shell",
+            // --packages-up-to (o padrao) reconstroi a cadeia inteira.
+            "command": "bash scripts/build.sh --select '${input:alvoBuild}'",
+            "group": "build",
             "problemMatcher": "$gcc",
             "presentation": { "panel": "dedicated", "clear": true }
         },
@@ -48,6 +68,8 @@
         {
             "label": "sim: iniciar com missão",
             "detail": "O mesmo que 'sim: iniciar', e já sobe a missão junto",
+            // Sem "dependsOrder": "sequence": o VS Code espera cada task
+            // TERMINAR, e PX4, Gazebo e agente nao terminam.
             "dependsOn": [
                 "sim: PX4 + Gazebo",
                 "sim: agente DDS",
@@ -58,18 +80,16 @@
         },
         {
             "label": "sim: PX4 + Gazebo",
-            "detail": "Sobe o simulador num mundo da competição",
+            "detail": "Sobe o PX4 SITL com o mundo escolhido",
             "type": "shell",
+            // "competicao:mundo": uma escolha so diz as duas coisas, e nao
+            // existe combinacao invalida.
             "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/simulate.sh\" \"${M#*:}\"",
             "problemMatcher": [],
             "presentation": {
-                // Sem "group": com ele, o VS Code junta as tasks num unico
-                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
-                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
-                // propria ABA -- da para alternar e ler uma de cada vez.
-                //
-                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
-                // de abrir uma nova a cada execucao.
+                // Sem "group": com ele o VS Code junta tudo num terminal
+                // dividido e nao da para ler nenhum. "dedicated" faz a task
+                // reusar sempre a mesma aba.
                 "panel": "dedicated",
                 "clear": true,
                 "showReuseMessage": false
@@ -77,20 +97,14 @@
         },
         {
             "label": "sim: agente DDS",
-            "detail": "Micro XRCE-DDS Agent — ponte PX4 ↔ ROS 2",
+            "detail": "Micro XRCE-DDS Agent — a ponte entre o PX4 e o ROS 2",
             "type": "shell",
-            // O agent.sh e igual em todas as competicoes; usamos a do mundo escolhido
-            // so para nao precisar de mais uma pergunta.
-            "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/agent.sh\"",
+            // NAO pergunta o mundo, e esse e o ponto: o VS Code resolve os
+            // inputs POR TASK, e duas tasks do mesmo dependsOn citando
+            // ${input:mundo} perguntavam o mundo duas vezes.
+            "command": "bash scripts/agent.sh",
             "problemMatcher": [],
             "presentation": {
-                // Sem "group": com ele, o VS Code junta as tasks num unico
-                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
-                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
-                // propria ABA -- da para alternar e ler uma de cada vez.
-                //
-                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
-                // de abrir uma nova a cada execucao.
                 "panel": "dedicated",
                 "clear": true,
                 "showReuseMessage": false
@@ -103,13 +117,6 @@
             "command": "bash scripts/image_bridge.sh",
             "problemMatcher": [],
             "presentation": {
-                // Sem "group": com ele, o VS Code junta as tasks num unico
-                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
-                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
-                // propria ABA -- da para alternar e ler uma de cada vez.
-                //
-                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
-                // de abrir uma nova a cada execucao.
                 "panel": "dedicated",
                 "clear": true,
                 "showReuseMessage": false
@@ -124,13 +131,6 @@
             "command": "P='${input:pacoteMissao}'; source scripts/ros_env.sh && ros2 launch \"${P#*:}\" simulation.launch.py",
             "problemMatcher": [],
             "presentation": {
-                // Sem "group": com ele, o VS Code junta as tasks num unico
-                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
-                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
-                // propria ABA -- da para alternar e ler uma de cada vez.
-                //
-                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
-                // de abrir uma nova a cada execucao.
                 "panel": "dedicated",
                 "clear": true,
                 "showReuseMessage": false
@@ -138,16 +138,16 @@
         },
         {
             "label": "sim: parar tudo",
-            "detail": "Encerra PX4, Gazebo e o agente DDS, e limpa /tmp/px4*",
+            "detail": "Encerra a simulação INTEIRA — e confere que encerrou",
             "type": "shell",
-            // O agente tambem precisa morrer: se ele sobrevive, a proxima
-            // simulacao encontra a porta 8888 ocupada e o PX4 nao conecta.
-            "command": "pkill -x px4; pkill -f 'gz sim'; pkill -x MicroXRCEAgent; rm -rf /tmp/px4*; echo 'simulação encerrada'",
+            // Antes eram tres pkill de um total muito maior, e a rodada
+            // seguinte subia por cima do que sobrava. O script manda SIGINT
+            // antes de SIGKILL e sai com erro se algo sobreviver.
+            "command": "bash scripts/parar.sh",
             "problemMatcher": [],
             "presentation": {
                 "panel": "dedicated",
-                "reveal": "silent",
-                "close": true,
+                "reveal": "always",
                 "showReuseMessage": false
             }
         },
@@ -155,31 +155,10 @@
         {
             "label": "sim2d: rodar uma fase",
             "detail": "Simulador 2D + missão, sem Gazebo — segundos em vez de minutos",
-            "dependsOn": [ "sim2d: simulador", "sim2d: missão" ],
-            "problemMatcher": []
-        },
-        {
-            "label": "sim2d: simulador",
-            "detail": "O simulador 2D, configurado pelo config da própria fase",
             "type": "shell",
-            // O mapa e a pose inicial saem do config/simulation.yaml da fase, e
-            // nao desta linha. Digita-los aqui criaria uma segunda copia deles,
-            // e a divergencia nao da erro: da um drone que comeca a missao
-            // acreditando estar noutro lugar.
-            "command": "P='${input:pacoteMissao}'; bash scripts/sim2d.sh \"${P#*:}\"",
-            "problemMatcher": [],
-            "presentation": {
-                "panel": "dedicated", "clear": true, "showReuseMessage": false
-            }
-        },
-        {
-            "label": "sim2d: missão",
-            "detail": "A missão, falando com o simulador 2D em vez do Gazebo",
-            "type": "shell",
-            // Sem o launch: ele subiria rosbag e system_health, que aqui so
-            // atrapalham. O binario da missao e o MESMO que vai para o Gazebo e
-            // para o drone -- e esse e o ponto do simulador.
-            "command": "P='${input:pacoteMissao}'; source scripts/ros_env.sh && sleep 3 && ros2 run \"${P#*:}\" \"${P#*:}\" --ros-args --params-file \"$(ros2 pkg prefix ${P#*:})/share/${P#*:}/config/simulation.yaml\" -p groot2_port:=0.0",
+            // UMA task: eram duas, e as duas citavam ${input:pacoteMissao},
+            // entao o VS Code perguntava a fase duas vezes.
+            "command": "P='${input:pacoteMissao}'; bash scripts/sim2d.sh \"${P#*:}\" --com-missao",
             "problemMatcher": [],
             "presentation": {
                 "panel": "dedicated", "clear": true, "showReuseMessage": false
@@ -195,6 +174,16 @@
             "presentation": { "panel": "dedicated", "clear": true }
         },
         {
+            "label": "perfil",
+            "detail": "Qual perfil de ambiente esta máquina está usando",
+            "type": "shell",
+            // Com Jetson (Humble) e Raspberry (Jazzy) ao mesmo tempo, "qual
+            // perfil" e a mesma pergunta que "em que maquina eu estou".
+            "command": "./doctor.sh --current && echo && ./doctor.sh --list",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
             "label": "tasks: sincronizar",
             "detail": "Atualiza as listas destas tasks a partir do que existe em src/",
             "type": "shell",
@@ -204,18 +193,50 @@
         },
 
         {
+            "label": "voo: pré-voo",
+            "detail": "Com a missão no ar: confere o sistema RODANDO antes de armar",
+            "type": "shell",
+            // Pega o caso em que codigo e documentacao concordam e A MAQUINA
+            // faz outra coisa. Nenhuma dessas falhas imprime erro.
+            "command": "P='${input:pacoteMissao}'; bash scripts/preflight.sh \"${P#*:}\"",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "contratos: atualizar",
+            "detail": "Regenera o docs/CONTRATOS.md a partir do código",
+            "type": "shell",
+            "command": "python3 scripts/contratos.py",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "voo: QGroundControl",
+            "detail": "Abre o QGC — procura o AppImage onde quer que ele esteja",
+            "type": "shell",
+            // Sem caminho fixo: o AppImage nao entra no repositorio. Para
+            // fixar, use a chave `qgc.path` do perfil da maquina.
+            "command": "bash scripts/qgc.sh",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "reveal": "silent" }
+        },
+        {
             "label": "voo: ground station",
             "detail": "Sobe a estação de solo de uma missão",
             "type": "shell",
-            "command": "P='${input:pacoteMissao}'; bash scripts/ground_station.sh \"${P#*:}\"",
-            "problemMatcher": []
+            // pacoteGround, e nao pacoteMissao: e derivado de quem TEM o
+            // launch de solo, entao a escolha errada deixa de existir.
+            "command": "bash scripts/ground_station.sh '${input:pacoteGround}'",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
         },
         {
             "label": "voo: fechar garra",
             "detail": "Aciona o servo da garra (GPIO da Jetson)",
             "type": "shell",
             "command": "bash scripts/fechar_garra.sh",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
         }
     ],
 
@@ -239,31 +260,74 @@
         },
         {
             "id": "alvoBuild",
-            "description": "O que compilar (competição:alvo)",
+            "description": "O que compilar (pacote, ou all/deps/changed)",
             "type": "pickString",
             "options": [
-                "cbr2026:all",
-                "cbr2026:deps",
-                "cbr2026:fase1",
-                "cbr2026:fase3",
-                "cbr2026:fase4",
-                "cm204-evtol:all",
-                "cm204-evtol:cbr2025_fase4",
-                "cm204-evtol:deps",
-                "ensaio_em_voo:all",
-                "ensaio_em_voo:deps",
-                "ensaio_em_voo:teste_grid_quadrado",
-                "ensaio_em_voo:teste_yaw",
-                "sae2026:all",
-                "sae2026:audio_alert",
-                "sae2026:deps",
-                "sae2026:mission_1",
-                "sae2026:mission_1_H",
-                "sae2026:mission_2",
-                "sae2026:mission_3",
-                "sae2026:mission_teste"
+                "all",
+                "deps",
+                "changed",
+                "RDPformas",
+                "audio_alert",
+                "ball_detector",
+                "base_detector",
+                "bouncing_detector",
+                "camera_calibrator",
+                "camera_publisher",
+                "custom_msgs",
+                "detector",
+                "drone_lib",
+                "fase1",
+                "fase3",
+                "fase4",
+                "fsm",
+                "fsm_demo",
+                "geofig_detector",
+                "gesture_detector",
+                "mangueira_detector",
+                "manometro_detector",
+                "maze_geometry",
+                "mission_1",
+                "mission_1_H",
+                "mission_2",
+                "mission_3",
+                "mission_teste",
+                "number_detector",
+                "ozzy_bridge",
+                "qrcode_detector",
+                "sim2d",
+                "stdbt",
+                "stdstates",
+                "telemetry_handler",
+                "teste_grid_quadrado",
+                "teste_yaw",
+                "vision_geometry",
+                "window_detector",
+                "behaviortree_cpp",
+                "cbr2025_fase4",
+                "example_global_navigation_cpp",
+                "example_local_navigation_cpp",
+                "example_mode_fw_attitude_cpp",
+                "example_mode_goto_cpp",
+                "example_mode_goto_global_cpp",
+                "example_mode_manual_cpp",
+                "example_mode_rtl_replacement_cpp",
+                "example_mode_with_executor_cpp",
+                "itajuba_cv_utils",
+                "itajuba_drone_lib",
+                "itajuba_fase1",
+                "itajuba_fase2",
+                "itajuba_fase3",
+                "itajuba_fase4",
+                "itajuba_telemetry_handler",
+                "px4_msgs",
+                "px4_ros2_cpp",
+                "sae_cv_utils",
+                "sae_drone_lib",
+                "sae_fase1",
+                "sae_fase2",
+                "sae_fase3"
             ],
-            "default": "sae2026:all"
+            "default": "changed"
         },
         {
             "id": "pacoteMissao",
@@ -282,6 +346,22 @@
                 "sae2026:mission_teste"
             ],
             "default": "sae2026:mission_1"
+        },
+        {
+            "id": "pacoteGround",
+            "description": "Estação de solo (pacote)",
+            "type": "pickString",
+            "options": [
+                "fase1",
+                "fase3"
+            ],
+            "default": "fase3"
+        },
+        {
+            "id": "pacotesDigitados",
+            "description": "Pacote(s) a compilar, separados por espaço",
+            "type": "promptString",
+            "default": ""
         }
     ]
 }

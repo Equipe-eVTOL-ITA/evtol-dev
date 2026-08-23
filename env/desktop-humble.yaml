@@ -248,3 +248,21 @@ git_repos:
     # mudança tem que ser validada em simulação antes de entrar aqui.)
     expect_describe: "v3.0.1"
     fix: "git -C ~/Micro-XRCE-DDS-Agent checkout v3.0.1 && recompilar (docs/SETUP.md seção 5)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QGroundControl — OPCIONAL, e por maquina.
+#
+# O `scripts/qgc.sh` procura o AppImage nos lugares onde ele costuma parar
+# (~/Apps, ~/Downloads/apps, ~/Downloads, /opt, ...) e, nesta maquina, o acha
+# sozinho. Esta chave existe para o caso em que ele nao acha -- porque a
+# maquina o guarda em outro lugar.
+#
+# Fica no PERFIL, e nao num script, pela mesma razao que a distro do ROS fica:
+# e informacao SOBRE ESTA MAQUINA. Um caminho escrito num script versionado
+# vale para quem o escreveu e para mais ninguem, e o AppImage tem 180 MB --
+# nao entra no repositorio.
+#
+# O doctor ignora esta secao; quem a le e o qgc.sh, via `--get qgc.path`.
+#
+# qgc:
+#   path: ~/Downloads/apps/QGroundControl-x86_64.AppImage

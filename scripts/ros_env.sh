@@ -35,6 +35,11 @@ _evtol_ros_env() {
     profile="$(tr -d '[:space:]' < "$ws_root/.evtol-profile")"
     profile_file="$ws_root/env/$profile.yaml"
 
+    # Exportado para que qualquer script -- e qualquer terminal de task -- saiba
+    # em que perfil esta sem reabrir o arquivo. Era informacao que este script
+    # ja tinha e guardava so para si.
+    export EVTOL_PROFILE="$profile"
+
     if [[ ! -f "$profile_file" ]]; then
         echo "ros_env.sh: perfil '$profile' não existe ($profile_file)." >&2
         return 1
