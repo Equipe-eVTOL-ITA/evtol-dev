@@ -7,17 +7,9 @@
 #   ./scripts/qgc.sh --onde       só diz onde achou
 #   ./scripts/qgc.sh --baixar     busca o AppImage se não houver nenhum
 #
-# POR QUE PROCURAR, E NÃO FIXAR UM CAMINHO
-#
-# O QGC é um AppImage solto, e cada máquina do time o guardou num lugar
-# diferente -- ~/Downloads, ~/Downloads/apps, ~/Apps, /opt. Um caminho fixo no
-# script funcionaria para quem o escreveu e para mais ninguém, e o AppImage é
-# grande demais (180 MB) para entrar no repositório.
-#
-# Então o script procura, na ordem do mais explícito para o mais provável, e
-# quem quiser fixar tem dois jeitos: a variável EVTOL_QGC, ou a chave
-# `qgc.path` no perfil da máquina em env/<perfil>.yaml. O perfil é o manifesto
-# de onde ESTA máquina guarda as coisas -- é o lugar certo.
+# Procura em vez de fixar um caminho: o AppImage tem 180 MB, não entra no
+# repositório, e cada máquina o guardou num lugar diferente. Para fixar, use
+# EVTOL_QGC ou a chave `qgc.path` do perfil da máquina.
 # =============================================================================
 set -euo pipefail
 
@@ -50,11 +42,8 @@ procurar() {
         echo "$EVTOL_QGC"; return 0
     fi
 
-    # 2. O perfil desta máquina, se declarar onde está.
-    #
-    # `|| true`: a chave é OPCIONAL, e o doctor sai com erro quando o campo não
-    # existe. Sem isso o `set -e` mataria o script em toda máquina que não a
-    # tivesse declarado -- ou seja, em todas, hoje.
+    # 2. O perfil desta máquina. `|| true` porque a chave é opcional e o
+    #    doctor sai com erro quando o campo não existe.
     c="$(python3 "$ws_root/env/doctor.py" --get qgc.path 2>/dev/null || true)"
     if [[ -n "$c" ]]; then
         c="${c/#\~/$HOME}"
@@ -131,8 +120,8 @@ fazer_download() {
         echo "      Baixe à mão de $URL" >&2
         exit 1
     fi
-    # Só vira o arquivo final quando o download termina inteiro. Um AppImage
-    # truncado é executável e falha com uma mensagem que não diz o que houve.
+    # Só vira o arquivo final quando termina: um AppImage truncado é
+    # executável e falha com uma mensagem que não diz o que houve.
     mv "$DESTINO_PADRAO.parcial" "$DESTINO_PADRAO"
     chmod +x "$DESTINO_PADRAO"
     echo "Pronto."
@@ -157,9 +146,7 @@ fi
 
 [[ -x "$qgc" ]] || chmod +x "$qgc" 2>/dev/null || true
 
-# O ModemManager abre toda serial nova para ver se é um modem, e nesse tempo o
-# QGC não conecta no Pixhawk por USB. O sintoma é o veículo aparecer e sumir,
-# ou nunca aparecer -- sem mensagem de erro nenhuma.
+# O ModemManager segura a serial e o QGC não acha o veículo pela USB.
 if systemctl is-active --quiet ModemManager 2>/dev/null; then
     echo "AVISO: o ModemManager está ativo." >&2
     echo "       Se o QGC não achar o veículo pela USB:" >&2
@@ -169,8 +156,7 @@ fi
 
 echo "QGroundControl: $qgc"
 
-# AppImage precisa de FUSE. Onde não houver (contêiner, Jetson enxuta, WSL), o
-# próprio AppImage sabe se extrair e rodar -- mas só se pedirem. Sem isto a
+# Sem FUSE o AppImage sabe se extrair e rodar, mas só se pedirem -- senão a
 # falha é um "dlopen(): error loading libfuse.so.2" que não sugere saída.
 if [[ "$qgc" == *.[Aa]pp[Ii]mage ]] && ! ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'; then
     echo "  (sem libfuse2: extraindo e rodando)"

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """O miolo do pre-voo. Chamado por scripts/preflight.sh, que carrega o ROS.
 
-Cada checagem responde a uma falha que ja custou caro aqui e que NAO imprime
-erro nenhum quando acontece.
+Cada checagem responde a uma falha que nao imprime erro nenhum quando acontece.
 """
 
 from __future__ import annotations
@@ -72,14 +71,10 @@ def checar_px4() -> None:
               "o agente esta rodando? ./scripts/agent.sh  (ou --serial, em voo)")
         return
 
-    # Uma amostra: nao basta o topico existir, tem de CHEGAR mensagem. Um
-    # agente vivo com o cabo solto produz exatamente o topico sem trafego.
-    #
-    # Com `timeout` do shell, e nao com `--timeout` do echo: o `ros2 topic echo`
-    # do Humble NAO tem essa flag (verificado), e passa-la faz o comando falhar
-    # na hora -- o que a primeira versao deste script leu como "nao chega
-    # mensagem". Um checador que acusa falha por erro proprio e pior do que
-    # nenhum: ele ensina o time a ignorar o vermelho.
+    # Nao basta o topico existir: um agente vivo com o cabo solto produz
+    # exatamente isso. Com `timeout` do shell -- o `ros2 topic echo` do Humble
+    # nao tem `--timeout`, e passa-la faria o checador acusar falha por erro
+    # proprio.
     saida = roda(["timeout", "6", "ros2", "topic", "echo", "--once",
                   "/fmu/out/vehicle_status"], timeout=10)
     if saida.strip():
@@ -97,13 +92,10 @@ RELIABILITY = re.compile(r"Reliability:\s*(\w+)")
 
 
 def qos_por_papel(info: str) -> tuple[list[str], list[str]]:
-    """(reliability dos publicadores, dos assinantes) a partir de `topic info -v`.
+    """(reliability dos publicadores, dos assinantes) de `topic info -v`.
 
-    O formato NAO tem cabecalhos "Publishers:" / "Subscriptions:", que era o
-    que a primeira versao deste script procurava -- e por isso ela reportava
-    "NENHUM publicador" para topicos que ela mesma media a 50 Hz duas secoes
-    abaixo. O que existe e um bloco por endpoint, cada um com a sua linha
-    `Endpoint type: PUBLISHER|SUBSCRIPTION` e o seu `QoS profile`.
+    O formato nao tem cabecalhos "Publishers:"/"Subscriptions:": e um bloco por
+    endpoint, cada um com a sua linha `Endpoint type:` e o seu `QoS profile`.
     """
     pubs: list[str] = []
     subs: list[str] = []
@@ -173,13 +165,8 @@ def checar_topicos_assinados(nos: list[str]) -> None:
         qos_pub, qos_sub = qos_por_papel(info)
 
         if not qos_pub:
-            # A severidade depende do topico, e nao da ausencia em si.
-            #
-            # O sim2d nao simula airspeed nem bateria, e o Drone assina os dois:
-            # marcar isso como falha faria o pre-voo reprovar toda rodada no
-            # simulador 2D, e um checador que sempre reprova nao e lido. Ja um
-            # topico de imagem ou de deteccao sem publicador e a falha classica
-            # -- a missao voa cega, e nenhum erro e impresso.
+            # A severidade depende do topico: o sim2d nao simula airspeed nem
+            # bateria, e um checador que sempre reprova nao e lido.
             if e_critico(topico):
                 falha(f"{topico}: NENHUM publicador",
                       "quem deveria publicar isto subiu? confira o nome do "
@@ -190,10 +177,9 @@ def checar_topicos_assinados(nos: list[str]) -> None:
                       "normal num simulador reduzido; em voo, nao")
             continue
 
-        # A combinacao que nao funciona e publicador BEST_EFFORT com assinante
-        # RELIABLE. Ela nao imprime erro em lugar nenhum: o topico aparece no
-        # `ros2 topic list`, o info mostra um publicador, e nenhuma mensagem
-        # chega. E a armadilha mais cara deste repositorio do lado do PC.
+        # Publicador BEST_EFFORT com assinante RELIABLE nao se falam, e nada
+        # e impresso: o topico aparece, o info mostra o publicador, e nenhuma
+        # mensagem chega.
         if "BEST_EFFORT" in qos_pub and "RELIABLE" in qos_sub:
             falha(f"{topico}: QoS INCOMPATIVEL "
                   f"(pub={'/'.join(sorted(set(qos_pub)))}, "
@@ -226,9 +212,8 @@ def checar_taxas() -> None:
     for topico, minimo in alvos:
         if topico not in topicos:
             continue
-        # Janela de 5 amostras em ate 6 s: com `-w 10` a 8 Hz o `ros2 topic hz`
-        # ainda nao tinha fechado a primeira media quando o timeout chegava, e
-        # o resultado era "sem trafego" para um topico que estava publicando.
+        # 5 amostras em ate 6 s: com `-w 10` a 8 Hz a media nao fechava a
+        # tempo, e topicos vivos apareciam como "sem trafego".
         saida = roda(["timeout", "6", "ros2", "topic", "hz", "-w", "5", topico],
                      timeout=9)
         m = HZ.search(saida)
@@ -281,12 +266,9 @@ def checar_parametros(config: Path, nos: list[str]) -> None:
                   + (f"Existem: {', '.join(parecidos)}" if parecidos
                      else "Nenhum topico de camera no ar."))
 
-    # 5c. O que o no EFETIVAMENTE carregou bate com o arquivo?
-    #
-    # Nao e a mesma pergunta. Um launch que sobe um no sem `name=` faz o no
-    # ficar com o nome padrao, e ai a secao do YAML -- que usa outro nome --
-    # nao se aplica a ele: ele cai nos defaults do codigo, e o arquivo de
-    # config fica dizendo uma coisa enquanto o sistema faz outra.
+    # 5c. Um launch que sobe um no sem `name=` deixa o no com o nome padrao,
+    # e a secao do YAML nao se aplica a ele: cai nos defaults, e o arquivo diz
+    # uma coisa enquanto o sistema faz outra.
     nomes_no_yaml = {n.lstrip("/") for n in declarado}
     nomes_vivos = {n.lstrip("/") for n in nos}
     orfas = nomes_no_yaml - nomes_vivos - {"/**"}

@@ -8,26 +8,13 @@
 #   ./scripts/parar.sh --so bag,ponte  só os grupos listados
 #   ./scripts/parar.sh --lista         não mata nada; só mostra o que está vivo
 #
-# POR QUE ELE NÃO É UMA LINHA DE pkill
+# SIGINT primeiro, escalada só para quem ignorar, e relatório do que sobrou.
+# Sai com erro se sobrou algo: "parar tudo" não pode terminar em verde com meia
+# simulação de pé.
 #
-# A versão anterior era, e tinha três defeitos que só apareciam depois:
-#
-#   1. Matava px4, `gz sim` e o agente, e mais nada. A ponte de imagem, os nós
-#      da missão, o sim2d, a estação de solo e o rosbag continuavam de pé. A
-#      rodada seguinte subia por cima deles, com dois publicadores no mesmo
-#      tópico -- o sistema responde, com dados de antes, e ninguém desconfia.
-#
-#   2. Mandava SIGKILL de saída. Um `ros2 bag record` morto a KILL não fecha o
-#      arquivo, e um bag sem índice não abre no `ros2 bag info`. O bag da fase3
-#      É o registro do voo: perdê-lo é perder a razão de ter voado.
-#
-#   3. Rodava `rm -rf /tmp/px4*` incondicionalmente, mesmo quando o pkill tinha
-#      falhado -- apagando o estado de um PX4 que continuava vivo.
-#
-# Aqui: SIGINT primeiro (que é o que o ROS entende por "termine o que está
-# fazendo"), escalada só para quem ignorar, e um relatório do que sobrou. Se
-# sobrou algo, o script sai com erro -- "parar tudo" não pode terminar em verde
-# com meia simulação de pé.
+# A versão anterior era um pkill seco de três processos, mandava SIGKILL de
+# saída (o que deixa o rosbag sem índice) e limpava /tmp/px4* mesmo quando o
+# kill falhava.
 # =============================================================================
 set -uo pipefail
 
@@ -111,10 +98,8 @@ if (( total_antes == 0 )); then
 fi
 
 # ── Fase 1: SIGINT, na ordem ─────────────────────────────────────────────────
-#
-# SIGINT é o Ctrl+C. O `ros2 launch` o intercepta e desliga os nós que subiu na
-# ordem certa; o `ros2 bag record` o intercepta e FECHA o arquivo. É o único
-# sinal que preserva o trabalho.
+# O `ros2 launch` o intercepta e desliga os nós em ordem; o `ros2 bag record`
+# fecha o arquivo. É o único sinal que preserva o trabalho.
 echo "Encerrando (SIGINT)..."
 for g in $alvos; do
     pids="${antes[$g]}"
@@ -122,8 +107,7 @@ for g in $alvos; do
     printf '  %-8s %s\n' "$g" "$(wc -w <<< "$pids") processo(s)"
     # shellcheck disable=SC2086
     kill -INT $pids 2>/dev/null
-    # Um respiro entre grupos: o `ros2 launch` precisa de um instante para
-    # repassar o sinal aos filhos antes de a infraestrutura sumir embaixo dele.
+    # Um respiro: o `ros2 launch` precisa repassar o sinal aos filhos.
     sleep 0.3
 done
 
@@ -138,9 +122,7 @@ sobreviventes_de() {
 esperar_ate() {
     # esperar_ate <segundos>; devolve 0 se tudo morreu dentro do prazo.
     #
-    # Conta em quartos de segundo com aritmética inteira do próprio bash. Sem
-    # `bc`: ele não está instalado na Jetson, e um script de parada não pode
-    # depender de pacote que a máquina de voo talvez não tenha.
+    # Aritmética inteira do bash: `bc` não está instalado na Jetson.
     local restam=$(( $1 * 4 ))
     while (( restam-- > 0 )); do
         [[ -z "$(sobreviventes_de | tr -d ' ')" ]] && return 0
@@ -149,8 +131,7 @@ esperar_ate() {
     [[ -z "$(sobreviventes_de | tr -d ' ')" ]]
 }
 
-# 6 s: o suficiente para um `ros2 bag record` grande terminar de escrever o
-# índice. Abaixo disso já se viu bag truncado.
+# 6 s: o suficiente para um bag grande escrever o índice.
 if ! esperar_ate 6; then
     restantes="$(sobreviventes_de)"
     if [[ -n "${restantes// /}" ]]; then
@@ -166,8 +147,7 @@ if [[ -n "${restantes// /}" ]]; then
     echo "Forçando (SIGKILL) em $(wc -w <<< "$restantes") processo(s)..."
     for pid in $restantes; do
         nome="$(evtol_nome_do_pid "$pid")"
-        # Um bag levado a KILL fica sem índice. Avisar é o mínimo: quem estava
-        # gravando um voo precisa saber que o arquivo pode não abrir.
+        # Um bag levado a KILL fica sem índice; quem gravava precisa saber.
         [[ "$nome" == *bag* ]] && \
             echo "  AVISO: o rosbag ($pid) não respondeu ao SIGINT. O arquivo pode ficar sem índice." >&2
     done

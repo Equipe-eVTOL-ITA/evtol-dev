@@ -8,22 +8,12 @@
 #   ./scripts/agent.sh --serial /dev/ttyUSB0 57600
 #   ./scripts/agent.sh --porta 8889       outra porta UDP
 #
-# POR QUE ESTE ARQUIVO ESTÁ NA RAIZ, e não em cada competição
+# Na raiz, e não em cada competição: os três agent.sh eram byte a byte iguais,
+# e a task perguntava o MUNDO só para escolher entre eles -- era essa a pergunta
+# que aparecia duas vezes ao subir uma missão.
 #
-# Havia um agent.sh por competição -- cbr2026, sae2026, e o do templates/ --
-# e os três eram byte a byte o mesmo arquivo. A task do VSCode chegou a
-# perguntar QUAL MUNDO você queria só para decidir de qual competição pegar um
-# script idêntico ao das outras; era essa pergunta que aparecia duas vezes ao
-# subir uma missão.
-#
-# Um agente só, e a pergunta some.
-#
-# O MODO SERIAL, que faltava
-#
-# Em simulação o agente fala UDP. Em voo NÃO: o Pixhawk está ligado por fio.
-# Os agent.sh das competições só sabiam UDP, e o comando de voo vivia solto
-# num comentário e repetido no docs/VOO_SSH.md -- para ser digitado à mão, por
-# SSH, com o drone armado esperando. É o tipo de coisa que se digita errado
+# O modo serial faltava: em voo o Pixhawk está ligado por fio, e o comando
+# vivia solto num comentário para ser digitado à mão por SSH. É o tipo de coisa que se digita errado
 # uma vez só.
 # =============================================================================
 set -euo pipefail
@@ -51,9 +41,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --serial)
             modo="serial"; shift
-            # Os dois seguintes são opcionais e posicionais. Só consome o que
-            # não começa com '-', para que `--serial --porta 9` não engula a
-            # flag seguinte como se fosse um dispositivo.
+            # Opcionais e posicionais; so consome o que nao comeca com '-'.
             [[ $# -gt 0 && "$1" != -* ]] && { dispositivo="$1"; shift; }
             [[ $# -gt 0 && "$1" != -* ]] && { baud="$1"; shift; }
             ;;
@@ -63,16 +51,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Um agente por vez.
-#
-# Esta checagem morava no guard do simulate.sh, e no lugar errado: o simulate.sh
-# sobe o PX4, nao o agente, e a task "sim: iniciar" roda os dois EM PARALELO --
-# entao o agente recem-nascido fazia o simulate.sh recusar a si mesmo.
-#
-# O conflito real e aqui: dois agentes na mesma porta dao
-# `bind error | port: 8888, errno: 98`, e o segundo morre. Como o primeiro
-# continua servindo, encerrar em silencio e o certo -- a task "sim: iniciar"
-# rodada duas vezes nao deve virar erro vermelho por causa disso.
+# Um agente por vez. Dois na mesma porta dão `bind error | port: 8888`, e o
+# segundo morre; como o primeiro continua servindo, encerrar em silêncio é o
+# certo. Esta checagem morava no guard do simulate.sh, que não sobe o agente.
 # shellcheck source=scripts/processos.sh
 source "$ws_root/scripts/processos.sh"
 
@@ -109,9 +90,8 @@ if [[ "$modo" == "serial" ]]; then
         exit 1
     fi
 
-    # O ModemManager abre toda serial nova para ver se é um modem, e enquanto
-    # faz isso o agente não consegue falar com o Pixhawk. O sintoma é o agente
-    # subir normalmente e nenhum tópico /fmu/out/* aparecer.
+    # O ModemManager segura toda serial nova; o sintoma é o agente subir e
+    # nenhum tópico /fmu/out/* aparecer.
     if systemctl is-active --quiet ModemManager 2>/dev/null; then
         echo "AVISO: o ModemManager está ativo e pode segurar '$dispositivo'." >&2
         echo "       Se nenhum tópico /fmu/out/* aparecer:" >&2

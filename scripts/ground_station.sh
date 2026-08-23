@@ -6,26 +6,16 @@
 #   ./scripts/ground_station.sh fase3
 #   ./scripts/ground_station.sh fase3 -- <argumentos extras do ros2 launch>
 #
-# POR QUE ELE PROCURA O LAUNCH EM VEZ DE SABER O NOME
-#
-# A versão anterior chamava, sempre, `ros2 launch <pkg> ground_station.launch.py`
-# -- e NENHUM pacote do manifesto tem um arquivo com esse nome. A task do VSCode
-# oferecia dez missões e as dez falhavam igual, com um "launch file not found"
-# que parecia problema de build.
-#
-# O que existe é `ground.launch.py`, na fase3. O repositório legado do itajuba
-# usa `ground_station.launch.py`, e daí veio o nome fixo aqui.
-#
-# Adivinhar um nome só era o defeito. Procurar entre os nomes usados, e dizer o
-# que achou quando não achar nenhum, custa o mesmo e não mente.
+# Procura entre os nomes em uso em vez de adivinhar um: a versão anterior
+# chamava sempre `ground_station.launch.py`, que nenhum pacote do manifesto tem
+# -- o que existe é `ground.launch.py`, na fase3.
 # =============================================================================
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ws_root="$(cd "$script_dir/.." && pwd)"
 
-# Nunca `source /opt/ros/humble/setup.bash` aqui. Era o que estava escrito, e
-# quebrava toda máquina com Jazzy -- que é metade dos perfis do time.
+# Nunca `source /opt/ros/humble/...` aqui: quebra as máquinas com Jazzy.
 # shellcheck source=scripts/ros_env.sh
 source "$ws_root/scripts/ros_env.sh"
 

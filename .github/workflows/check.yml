@@ -91,13 +91,8 @@ jobs:
           done
           exit $erros
 
-      # -----------------------------------------------------------------------
-      # O perfil em uso tem de ser respondivel.
-      #
-      # O --current e a resposta a "em qual perfil eu estou", que ate agora nao
-      # tinha nenhuma. Se ele parar de funcionar, quem descobre e alguem
-      # depurando um voo -- que e a pior hora possivel.
-      # -----------------------------------------------------------------------
+      # O --current responde "em qual perfil eu estou". Se ele quebrar, quem
+      # descobre e alguem depurando um voo.
       - name: O doctor sabe dizer qual perfil esta em uso
         run: |
           erros=0
@@ -116,18 +111,9 @@ jobs:
           fi
           exit $erros
 
-      # -----------------------------------------------------------------------
-      # As listas das tasks sao geradas. Uma lista desatualizada nao quebra
-      # nada no CI -- ela quebra na maquina de quem for usar a task, oferecendo
-      # opcoes que nao existem mais ou escondendo as que existem.
-      #
-      # Este passo nao roda o sync_tasks.py de verdade (ele precisa do colcon e
-      # do src/ importado, que o CI nao tem): confere que o tasks.json continua
-      # sendo JSON valido depois dos comentarios, que todo ${input:...} citado
-      # nas tasks existe no bloco inputs, e que nenhuma cadeia de dependsOn
-      # pergunta o mesmo input duas vezes -- o defeito que fazia "sim: iniciar
-      # com missão" perguntar o mundo duas vezes.
-      # -----------------------------------------------------------------------
+      # Nao roda o sync_tasks.py (precisa do colcon e do src/): confere que o
+      # tasks.json e JSON valido, que todo ${input:...} existe, e que nenhuma
+      # cadeia de dependsOn pergunta o mesmo input duas vezes.
       - name: As tasks do VS Code sao coerentes
         run: |
           python3 - <<'PY'
@@ -170,15 +156,8 @@ jobs:
           sys.exit(1 if falhas else 0)
           PY
 
-      # -----------------------------------------------------------------------
-      # O docs/CONTRATOS.md e GERADO do codigo. Se ele defasar, passa a mentir
-      # -- e um documento errado custa mais caro do que documento nenhum,
-      # porque as pessoas confiam nele. Este passo e o que impede a defasagem.
-      #
-      # Precisa do src/ importado, que este repositorio nao versiona. O import
-      # e raso e usa as versoes PINADAS do manifesto, que o passo seguinte ja
-      # verifica existirem.
-      # -----------------------------------------------------------------------
+      # O docs/CONTRATOS.md e gerado do codigo; defasado, ele mente. Precisa do
+      # src/ importado, raso e nas versoes pinadas do manifesto.
       - name: docs/CONTRATOS.md esta em dia com o codigo
         run: |
           python3 -m pip install --quiet vcstool

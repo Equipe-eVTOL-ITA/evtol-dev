@@ -14,22 +14,10 @@
 #   Opções: --debug (build type Debug)   --test (roda os testes ao fim)
 #           --continue (não para no primeiro pacote que falhar)
 #
-# POR QUE ELE EXISTE, se cada competição já tem um build.sh
-#
-# Os build.sh das competições são bons no que fazem e limitados no resto: cada
-# um só aceita pacotes DA SUA competição, e a task do VSCode os chamava com um
-# alvo no formato "competicao:pacote". Duas consequências, as duas medidas:
-#
-#   Não havia como compilar um pacote que não pertence a competição nenhuma --
-#   camera_publisher, cv_nodes, drone_lib, stdstates. Justamente os que mais se
-#   mexe, e os únicos que quebram todas as missões de uma vez.
-#
-#   `all` significava "o workspace inteiro" em todos eles. Então cbr2026:all,
-#   sae2026:all e ensaio_em_voo:all faziam exatamente a mesma coisa, e a
-#   escolha da competição no menu não queria dizer nada.
-#
-# Aqui o alvo é o nome do pacote, e pronto. A competição não entra na conta
-# porque nunca fez diferença.
+# O alvo é o nome do pacote, e pronto. Os build.sh das competições só aceitam
+# pacotes da própria competição -- deixando de fora camera_publisher, cv_nodes,
+# drone_lib e stdstates -- e o `all` deles significa o workspace inteiro em
+# todos, o que tornava o prefixo da competição irrelevante.
 # =============================================================================
 set -euo pipefail
 
@@ -85,17 +73,11 @@ COMMON=(--symlink-install --executor sequential
         "${extra[@]+"${extra[@]}"}")
 
 # --changed: os pacotes cujo repositório tem trabalho solto.
-#
-# É o alvo do dia a dia -- "compile o que eu mexi" -- e evita tanto o
-# `--all` de cinco minutos quanto a lista digitada à mão que sempre esquece um.
 if [[ "$modo" == "changed" ]]; then
     modo="--packages-select"
     alvos=()
-    # Só os repositórios DO MANIFESTO.
-    #
-    # src/ também guarda trabalho legado que não está no evtol.repos --
-    # itajuba, sae_2025, cm204-evtol. Eles vivem permanentemente "sujos", e
-    # incluí-los fazia o --changed propor 12 pacotes quando dois tinham mudado.
+    # Só os repositórios DO MANIFESTO: o legado em src/ (itajuba, sae_2025,
+    # cm204-evtol) vive permanentemente sujo.
     while IFS= read -r repo; do
         repo="src/$repo"
         [[ -d "$repo/.git" ]] || continue
@@ -129,9 +111,8 @@ else
         exit 2
     fi
 
-    # Valida ANTES de compilar. Um nome errado que só aparece depois de o
-    # colcon rodar custa a espera inteira para nada -- e o colcon, com
-    # --packages-select, simplesmente não compila nada e sai com sucesso.
+    # Valida ANTES de compilar: com --packages-select, um nome errado faz o
+    # colcon não compilar nada e sair com sucesso.
     disponiveis="$(pacotes_do_workspace)"
     invalidos=()
     for alvo in "${alvos[@]}"; do
@@ -141,18 +122,11 @@ else
     if [[ ${#invalidos[@]} -gt 0 ]]; then
         for alvo in "${invalidos[@]}"; do
             echo "build.sh: não existe pacote '$alvo'." >&2
-            # Sugere pelos nomes que contêm o que foi digitado, e vice-versa.
-            # Erro de digitação em nome de pacote é comum o bastante para que
-            # recusar sem ajudar seja gasto de tempo de alguém.
-            # Prefixos cada vez mais curtos do que foi digitado. Um `grep`
-            # pelo nome inteiro não acha nada quando o erro é justamente uma
-            # letra ("camera_publishr"), que é o caso comum -- e recusar sem
-            # ajudar gasta o tempo de quem digitou.
+            # Prefixos cada vez mais curtos: um grep pelo nome inteiro não
+            # acha nada quando o erro é uma letra ("camera_publishr").
             perto=""
             for (( n=${#alvo}; n >= 3; n-- )); do
-                # O `|| true` não é decoração: sob `set -e`, um grep que não
-                # acha nada devolve 1 e abortaria o script AQUI -- no meio da
-                # mensagem de erro, sem nunca chegar à sugestão.
+                # `|| true`: sob `set -e`, um grep vazio abortaria aqui.
                 perto="$(grep -i -- "^${alvo:0:n}" <<< "$disponiveis" | head -5 || true)"
                 [[ -n "$perto" ]] && break
             done

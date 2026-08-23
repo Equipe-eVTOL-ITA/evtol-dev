@@ -1,41 +1,22 @@
 #!/usr/bin/env python3
 """Gera docs/CONTRATOS.md a partir do codigo, e reprova quando ele defasa.
 
-O PROBLEMA QUE ISTO RESOLVE
----------------------------
-As hipoteses que sustentam o voo -- convencoes de frame, nomes de topico,
-frequencias, tamanho de imagem, como a ROI e feita, que comando do PX4 e usado
--- estavam todas documentadas, e todas documentadas NO LUGAR ONDE FORAM
-ESCRITAS. Espalhadas por sessenta arquivos, em comentarios.
+O documento nao e escrito: e DERIVADO de duas fontes, as duas dentro do codigo.
 
-Na hora de depurar um voo de verdade nao havia onde olhar. E escrever um
-documento unico so trocaria o problema de lugar: ele estaria certo por uma
-semana e depois passaria a mentir, que e pior do que nao existir -- um
-documento errado custa mais caro do que documento nenhum, porque as pessoas
-confiam nele.
+  1. Fatos extraidos dos fontes -- topicos, QoS, timers, parametros dos YAML,
+     comandos do PX4, e a tabela de onde se comanda movimento.
 
-A SAIDA
--------
-O documento nao e escrito: e DERIVADO. Duas fontes, as duas dentro do codigo:
+  2. Blocos-ancora, para a prosa que nao se gera:
 
-  1. Fatos extraidos direto dos fontes -- topicos, QoS, timers, parametros dos
-     YAML, comandos do PX4, e a tabela de onde se comanda movimento.
-
-  2. Blocos-ancora, para a prosa que nao se gera. Um comentario delimitado
-     assim, em qualquer arquivo:
-
-         // >>> CONTRATO frames.camera-optical
-         // imagem +x -> corpo +Y (direita) ...
+         // >>> CONTRATO frames.camera-optica
+         // ...
          // <<< CONTRATO
 
-     e transcrito para o documento. A explicacao continua onde quem programa
-     trabalha; o documento e uma VISTA dela, nunca uma copia.
+     A explicacao continua onde quem programa trabalha; o documento e uma vista
+     dela, e nao uma copia que envelhece.
 
-E o `--check` roda no CI. Mexeu no codigo e nao regenerou? O PR reprova. E a
-mesma mecanica do sync_tasks.py, pela mesma razao.
+O `--check` roda no CI -- mesma mecanica do sync_tasks.py.
 
-Uso
----
     python3 scripts/contratos.py           # regenera docs/CONTRATOS.md
     python3 scripts/contratos.py --check   # so diz se esta desatualizado
 """
@@ -65,8 +46,7 @@ FONTES = (".cpp", ".hpp", ".h", ".py")
 def repos_do_manifesto() -> list[str]:
     """Os repositorios do evtol.repos, menos os de terceiros.
 
-    O manifesto e a fronteira entre "o codigo do time" e "o que por acaso esta
-    em src/": itajuba, sae_2025 e cm204-evtol sao legado e nao entram.
+    O manifesto e a fronteira entre o codigo do time e o legado em src/.
     """
     manifesto = WS_ROOT / "evtol.repos"
     if not manifesto.is_file():
@@ -202,14 +182,9 @@ COMANDOS = re.compile(
     r"|move_local_by_speed|move_local_by_vel_as_position|move_local_constant_step"
     r"|irPara|land|arm|disarm)\s*\(")
 
-# Uma definicao de funcao/metodo em C++, aproximada: o suficiente para dizer
-# "dentro de qual funcao esta esta linha". Nao e um parser, e nao precisa ser.
-#
-# Casa tanto a assinatura que cabe numa linha quanto a que quebra em varias --
-# esta ultima e comum aqui, e a primeira versao nao a pegava: o resultado era
-# `MotionPolicy::irPara` sendo atribuido a `normalizarAngulo`, a funcao livre
-# logo acima. Uma tabela de "onde eu mexo" que aponta para a funcao errada e
-# pior do que nenhuma.
+# Definicao de funcao/metodo em C++, aproximada -- o suficiente para dizer em
+# qual funcao esta uma linha. Casa tambem a assinatura quebrada em varias
+# linhas, comum aqui: sem isso a tabela aponta para a funcao errada.
 DEF_CPP = re.compile(
     r"^[ \t]*(?:[\w:<>,&*~\s]+?\s+)?(?:(\w+)::)?([A-Za-z_]\w*)\s*\("
     r"(?:[^;{]*\)\s*(?:const\s*)?(?:override\s*)?(?:noexcept\s*)?\{?)?\s*$")
@@ -218,9 +193,8 @@ DEF_PY = re.compile(r"^[ \t]*def\s+(\w+)\s*\(")
 RUIDO = {"if", "for", "while", "switch", "catch", "return", "else", "do",
          "sizeof", "static_cast", "reinterpret_cast", "dynamic_cast"}
 
-# Um TIPO logo antes do nome quer dizer DECLARACAO, e nao chamada. Sem isto, o
-# `void move_local_by_speed(...);` do movement.hpp entrava na tabela como se
-# fosse um ponto que comanda o drone -- e o header so anuncia a funcao.
+# Um TIPO antes do nome quer dizer DECLARACAO: sem isto as assinaturas dos
+# headers entram na tabela como se comandassem o drone.
 TIPO_ANTES = re.compile(
     r"\b(?:void|bool|float|double|int|unsigned|char|auto|inline|static|virtual"
     r"|std::[\w:<>,\s]+|Eigen::[\w:<>,\s]+|[A-Z]\w*)\s*[&*]?\s*$")
@@ -262,9 +236,8 @@ def onde_se_comanda_movimento() -> list[tuple[str, str, int, str]]:
     """[(repo, arquivo, linha, funcao -> comandos)]"""
     saida = []
     for repo, p in arquivos():
-        # O proprio drone_lib DEFINE esses metodos; listar as definicoes junto
-        # com os usos faria a tabela dizer que o Drone.cpp "comanda movimento"
-        # em trinta lugares, quando o que ele faz e implementa-los.
+        # O Drone.cpp DEFINE esses metodos; listar as definicoes junto com os
+        # usos faria a tabela apontar trinta vezes para quem so os implementa.
         if repo == "drone_lib" and p.name in ("Drone.cpp", "Drone.hpp"):
             continue
         texto = ler(p)

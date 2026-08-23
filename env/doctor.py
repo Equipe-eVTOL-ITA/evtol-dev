@@ -665,13 +665,8 @@ def perfil_e_origem(explicit: str | None) -> tuple[str | None, str]:
     """
     O perfil em uso e DE ONDE ele veio, sem abortar quando nao ha nenhum.
 
-    POR QUE A ORIGEM IMPORTA
-
-    O `resolve_profile` responde "qual", e ate aqui era so o que se perguntava.
-    Mas quando a maquina se comporta como outra, a pergunta util e "por que
-    ESSE": um `--profile` na linha de comando e um `.evtol-profile` no disco
-    dao respostas diferentes para o mesmo workspace, e quem esta depurando
-    precisa saber qual dos dois esta valendo.
+    A origem importa: um `--profile` na linha de comando e um `.evtol-profile`
+    no disco dao respostas diferentes para o mesmo workspace.
     """
     if explicit:
         return explicit, "--profile na linha de comando"
@@ -735,14 +730,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # --current: qual perfil esta valendo AQUI.
-    #
-    # Havia como listar os perfis (--list) e como escolher um (--profile), e
-    # nao havia como perguntar em qual voce esta. Numa equipe com Jetson
-    # (Humble) e Raspberry (Jazzy) ao mesmo tempo, "em qual maquina eu estou"
-    # e "com qual perfil" sao a mesma pergunta -- e ela aparece justamente
-    # quando algo se comporta de forma inesperada, que e a pior hora para
-    # descobrir que a resposta exigia abrir um arquivo escondido.
+    # --current: qual perfil esta valendo aqui. Dava para listar os perfis e
+    # para escolher um, e nao para perguntar em qual voce esta.
     if args.current:
         name, origem = perfil_e_origem(args.profile)
 
@@ -799,9 +788,8 @@ def main() -> int:
         return 0
 
     if args.list:
-        # O atual leva um '*'. Listar sem dizer qual esta valendo obriga a uma
-        # segunda pergunta, e era exatamente essa segunda pergunta que nao
-        # tinha resposta.
+        # O atual leva um '*': listar sem dizer qual vale obriga a perguntar
+        # de novo.
         atual, _ = perfil_e_origem(args.profile)
         print("Perfis disponiveis:")
         for name in available_profiles():

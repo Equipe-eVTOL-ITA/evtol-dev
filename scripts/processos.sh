@@ -5,26 +5,9 @@
 #
 #   source scripts/processos.sh
 #
-# Este arquivo é a ÚNICA definição de quais processos compõem uma simulação e
-# de como encontrá-los. Quem precisa parar (scripts/parar.sh) e quem precisa
-# recusar começar por já haver coisa rodando (os simulate.sh das competições)
-# leem daqui.
-#
-# POR QUE ELE EXISTE
-#
-# A lista vivia duplicada em dois lugares, escrita à mão nos dois:
-#
-#     .vscode/tasks.json     pkill -x px4; pkill -f 'gz sim'; pkill -x MicroXRCEAgent
-#     src/*/scripts/simulate.sh   pgrep -x px4 ... pgrep -f 'gz sim' ...
-#
-# As duas cópias concordavam, e as duas estavam incompletas do mesmo jeito:
-# nenhuma via a ponte de imagem, os nós da missão, o sim2d, a estação de solo
-# nem o rosbag. O efeito prático era "parar tudo" deixar meia simulação de pé,
-# e a rodada seguinte herdar nós velhos assinando os mesmos tópicos -- que é
-# uma das formas mais confusas de depurar, porque o sistema responde, só que
-# com dados de antes.
-#
-# Uma lista só. Quem quiser um grupo novo, acrescenta aqui.
+# A ÚNICA definição de quais processos compõem uma simulação. Lida pelo
+# parar.sh e pelos simulate.sh das competições, que antes mantinham cada um a
+# sua cópia da lista — as duas incompletas do mesmo jeito.
 #
 # Feito para ser SOURCED. Não usa `set -e` nem `exit`.
 # =============================================================================
@@ -35,14 +18,9 @@ _EVTOL_PROC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EVTOL_WS_ROOT="$(cd "$_EVTOL_PROC_DIR/.." && pwd)"
 export EVTOL_WS_ROOT
 
-# -----------------------------------------------------------------------------
-# Os grupos, NA ORDEM EM QUE DEVEM MORRER.
-#
-# A ordem não é estética. Os nós da missão e o rosbag saem primeiro, com o
-# sistema ainda de pé, para que o `ros2 launch` consiga fechar o que abriu --
-# em especial o bag, que precisa ser fechado para ganhar índice. Só então cai a
-# infraestrutura embaixo deles.
-# -----------------------------------------------------------------------------
+# Os grupos, NA ORDEM EM QUE DEVEM MORRER: os nós e o bag primeiro, com o
+# sistema ainda de pé, para que o `ros2 launch` feche o que abriu -- em
+# especial o bag, que sem isso fica sem índice.
 evtol_grupos() {
     printf '%s\n' nos bag ponte agente gazebo px4
 }
@@ -74,8 +52,7 @@ evtol_padroes() {
             ;;
         gazebo)
             # `gz sim` é um wrapper em ruby que exec'a dois binários com nomes
-            # próprios. O `-f 'gz sim'` de antes pegava só o wrapper: o servidor
-            # e a interface sobreviviam, e a porta e o mundo continuavam presos.
+            # próprios; casar só o wrapper deixava servidor e interface vivos.
             printf 'f\tgz sim\n'
             printf 'x\tgz-sim-server\n'
             printf 'x\tgz-sim-gui\n'
@@ -93,11 +70,9 @@ evtol_padroes() {
             printf 'f\tros2 bag record\n'
             ;;
         nos)
-            # `ros2 launch` é o pai: um SIGINT nele derruba, de forma ordenada,
-            # tudo o que ele subiu -- inclusive o rosbag do ground.launch.py.
+            # `ros2 launch` é o pai: um SIGINT nele derruba o que ele subiu,
+            # inclusive o rosbag. O modo `w` pega o resto.
             printf 'f\tros2 launch\n'
-            # E o modo `w`: todo processo cujo BINÁRIO mora no install/ deste
-            # workspace. Ver _evtol_pids_do_workspace.
             printf 'w\t-\n'
             ;;
         *)
@@ -106,13 +81,8 @@ evtol_padroes() {
     esac
 }
 
-# -----------------------------------------------------------------------------
-# PIDs vivos de um grupo, um por linha.
-#
-# O próprio processo que pergunta e seus ancestrais ficam de fora. Sem isso,
-# `parar.sh` casaria com a própria linha de comando via `-f` e se mataria no
-# meio do trabalho -- deixando de pé justamente o que devia ter matado.
-# -----------------------------------------------------------------------------
+# PIDs vivos de um grupo. O próprio processo e seus ancestrais ficam de fora:
+# senão o parar.sh casaria com a própria linha de comando e se mataria.
 evtol_pids_do_grupo() {
     local grupo="$1" modo padrao encontrados=""
 
@@ -134,17 +104,9 @@ evtol_pids_do_grupo() {
     done | sort -un
 }
 
-# -----------------------------------------------------------------------------
-# A cadeia de ancestrais deste shell, calculada UMA vez.
-#
-# A versão anterior chamava `ps -o ppid=` por candidato, a cada varredura. Numa
-# espera de 9 segundos com poll de 0,25 s isso virava milhares de forks, e o
-# `parar.sh` levava 47 s medidos para encerrar dois processos de teste. Um
-# script de parada precisa ser mais rápido do que a paciência de quem o roda.
-#
-# O /proc/PID/stat traz o pai no 4º campo, e lê-se com o `read` embutido do
-# bash -- sem processo nenhum.
-# -----------------------------------------------------------------------------
+# A cadeia de ancestrais deste shell, calculada UMA vez e lida do /proc com o
+# `read` embutido. Com um `ps` por candidato a cada varredura, o parar.sh
+# levava 47 s medidos para encerrar dois processos.
 _EVTOL_ANCESTRAIS=""
 _evtol_carregar_ancestrais() {
     [[ -n "$_EVTOL_ANCESTRAIS" ]] && return 0
@@ -167,21 +129,9 @@ _evtol_carregar_ancestrais() {
 # -----------------------------------------------------------------------------
 # Todo processo que roda a partir do install/ deste workspace.
 #
-# POR QUE PELO /proc, E NÃO POR `pgrep -f <caminho>`
-#
-# A primeira versão casava o caminho absoluto do install/ na linha de comando
-# com `pgrep -f`. Parece a mesma coisa e não é: medido aqui, `bash
-# install/no.sh` produz uma linha de comando RELATIVA, e o padrão absoluto não
-# casa. O bash ainda troca o próprio processo pelo último comando (`exec`), e
-# o caminho que estava lá some.
-#
-# Ler /proc é também o que torna a varredura barata: `read` e `mapfile` são
-# embutidos do bash, então percorrer o /proc inteiro não cria processo nenhum.
-# A versão com `cat | tr | grep` por PID custava três forks por processo vivo.
-#
-# Ancorado no caminho ABSOLUTO deste workspace, um outro workspace ROS na mesma
-# máquina nunca casa por engano.
-# -----------------------------------------------------------------------------
+# Lido do /proc com embutidos do bash: sem fork por PID, e imune a linha de
+# comando relativa (que `pgrep -f <caminho absoluto>` não casa). Ancorado no
+# caminho absoluto, outro workspace ROS na mesma máquina nunca casa por engano.
 _evtol_pids_do_workspace() {
     local prefixo="$EVTOL_WS_ROOT/install/"
     local proc pid alvo
@@ -190,15 +140,9 @@ _evtol_pids_do_workspace() {
     for proc in /proc/[0-9]*; do
         pid="${proc#/proc/}"
 
-        # A linha de comando, e não o /proc/PID/exe.
-        #
-        # O exe seria o binário resolvido pelo kernel, imune a quem reescreve o
-        # argv[0] -- mas lê-lo exige `readlink`, que é um fork POR PROCESSO da
-        # máquina. Não compensa: tanto `ros2 launch` quanto `ros2 run` passam o
-        # caminho ABSOLUTO do install/ como argv[0], então a varredura da linha
-        # de comando acha os nós em C++ e os em Python pelo mesmo caminho. E um
-        # nó que reescrevesse o próprio argv[0] ainda cairia junto com o
-        # `ros2 launch` que o subiu, pelo padrão do grupo.
+        # A linha de comando, e não o /proc/PID/exe: ler o exe exigiria um
+        # `readlink` por processo da máquina, e tanto `ros2 launch` quanto
+        # `ros2 run` já passam o caminho absoluto do install/ como argv[0].
         [[ -r "$proc/cmdline" ]] || continue
         args=()
         mapfile -d '' -t args < "$proc/cmdline" 2>/dev/null || continue
@@ -218,28 +162,13 @@ evtol_nome_do_pid() {
     echo "${nome:-?}"
 }
 
-# -----------------------------------------------------------------------------
-# Há simulação rodando? Usado pelo guard dos simulate.sh.
+# Há simulação rodando?  evtol_simulacao_viva [grupo...]  (padrão: px4 gazebo)
+# Ecoa os grupos ocupados e devolve 0 se achou algo.
 #
-#     evtol_simulacao_viva [grupo...]     (padrão: px4 gazebo)
-#
-# Ecoa os grupos ocupados (vazio = nada rodando) e devolve 0 se achou algo.
-#
-# POR QUE O AGENTE NÃO ESTÁ NO PADRÃO
-#
-# Ele já esteve, e isso quebrava a task "sim: iniciar". O VS Code roda as
-# tasks de um `dependsOn` EM PARALELO: o agente e o simulate.sh sobem juntos,
-# o agente ganha a corrida, e o guard do simulate.sh via o agente recém-nascido
-# como prova de que "já há simulação rodando". A task recusava a si mesma, e a
-# mensagem mandava rodar o "parar tudo" -- que resolvia por um instante, até a
-# corrida acontecer de novo.
-#
-# O erro de fundo era de escopo. O guard existe por causa do
-# `bind error | port: 8888, errno: 98`, que é o AGENTE falhando ao subir com
-# outro agente já na porta. Mas quem sobe o agente é o agent.sh, não o
-# simulate.sh -- e um agente de pé é justamente o que o PX4 precisa encontrar.
-# Cada script guarda o que ele mesmo inicia; ver a checagem no agent.sh.
-# -----------------------------------------------------------------------------
+# O AGENTE NÃO ESTÁ NO PADRÃO de propósito: o VS Code roda as tasks de um
+# `dependsOn` em paralelo, e o agente recém-nascido fazia o guard do
+# simulate.sh recusar a própria task. Cada script guarda o que ele mesmo
+# inicia; a checagem do agente está no agent.sh.
 evtol_simulacao_viva() {
     local grupos=("$@")
     [[ ${#grupos[@]} -eq 0 ]] && grupos=(px4 gazebo)

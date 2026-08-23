@@ -33,13 +33,6 @@
             "detail": "Compila um pacote, ou all / deps / changed — Ctrl+Shift+B",
             "type": "shell",
             // O alvo e o NOME DO PACOTE, sem prefixo de competicao.
-            //
-            // Antes era "competicao:alvo", e isso escondia duas coisas. Pacote
-            // que nao pertence a competicao nenhuma nao aparecia na lista --
-            // camera_publisher, cv_nodes, drone_lib, stdstates, justamente os
-            // que mais se mexe. E `all` fazia a mesma coisa nos quatro
-            // prefixos, porque todos os build.sh rodam colcon sobre o src/
-            // inteiro: `cbr2026:all` e `sae2026:all` eram o mesmo comando.
             "command": "bash scripts/build.sh '${input:alvoBuild}'",
             "group": { "kind": "build", "isDefault": true },
             "problemMatcher": "$gcc",
@@ -50,8 +43,6 @@
             "detail": "Compila o(s) pacote(s) que você digitar — aceita vários",
             "type": "shell",
             // A lista suspensa so conhece o que existia na ultima sincronizacao.
-            // Quem acabou de criar uma missao e exatamente quem precisa
-            // compila-la, e nao deveria ter que rodar o sincronizador antes.
             "command": "bash scripts/build.sh ${input:pacotesDigitados}",
             "group": "build",
             "problemMatcher": "$gcc",
@@ -61,9 +52,7 @@
             "label": "build: só este pacote (sem dependências)",
             "detail": "--packages-select: recompila só ele, para o ciclo curto",
             "type": "shell",
-            // --packages-up-to (o padrao) reconstroi a cadeia inteira de
-            // dependencias. Quando se mexeu num .py de um pacote so, isso e
-            // esperar minutos por nada.
+            // --packages-up-to (o padrao) reconstroi a cadeia inteira.
             "command": "bash scripts/build.sh --select '${input:alvoBuild}'",
             "group": "build",
             "problemMatcher": "$gcc",
@@ -79,12 +68,8 @@
         {
             "label": "sim: iniciar com missão",
             "detail": "O mesmo que 'sim: iniciar', e já sobe a missão junto",
-            // POR QUE NAO HA "dependsOrder": "sequence" AQUI
-            //
-            // Parece a correcao obvia para a ordem de subida, e nao e: o VS
-            // Code espera cada task TERMINAR antes de comecar a proxima, e
-            // PX4, Gazebo e agente nao terminam -- ficam rodando. Com
-            // "sequence" a cadeia trava na primeira e a missao nunca sobe.
+            // Sem "dependsOrder": "sequence": o VS Code espera cada task
+            // TERMINAR, e PX4, Gazebo e agente nao terminam.
             "dependsOn": [
                 "sim: PX4 + Gazebo",
                 "sim: agente DDS",
@@ -97,19 +82,14 @@
             "label": "sim: PX4 + Gazebo",
             "detail": "Sobe o PX4 SITL com o mundo escolhido",
             "type": "shell",
-            // A opcao vem como "competicao:mundo"; ${M%%:*} pega a competicao e
-            // ${M#*:} pega o mundo. Assim uma escolha so ja diz as duas coisas,
-            // e nao existe combinacao invalida.
+            // "competicao:mundo": uma escolha so diz as duas coisas, e nao
+            // existe combinacao invalida.
             "command": "M='${input:mundo}'; bash \"src/${M%%:*}/scripts/simulate.sh\" \"${M#*:}\"",
             "problemMatcher": [],
             "presentation": {
-                // Sem "group": com ele, o VS Code junta as tasks num unico
-                // terminal DIVIDIDO, e com quatro processos falantes ao mesmo
-                // tempo nao da para ler nenhum. Sem ele, cada task ganha a
-                // propria ABA -- da para alternar e ler uma de cada vez.
-                //
-                // "dedicated" faz cada task reusar sempre a MESMA aba, em vez
-                // de abrir uma nova a cada execucao.
+                // Sem "group": com ele o VS Code junta tudo num terminal
+                // dividido e nao da para ler nenhum. "dedicated" faz a task
+                // reusar sempre a mesma aba.
                 "panel": "dedicated",
                 "clear": true,
                 "showReuseMessage": false
@@ -119,18 +99,9 @@
             "label": "sim: agente DDS",
             "detail": "Micro XRCE-DDS Agent — a ponte entre o PX4 e o ROS 2",
             "type": "shell",
-            // ESTA TASK NAO PERGUNTA O MUNDO, E ESSE E O PONTO.
-            //
-            // Ela chamava "src/${M%%:*}/scripts/agent.sh", usando o mundo so
-            // para escolher de qual competicao pegar o script -- e os agent.sh
-            // das competicoes eram byte a byte identicos. O preco era alto e
-            // invisivel: o VS Code resolve os inputs POR TASK, entao um
-            // dependsOn com duas tasks citando ${input:mundo} perguntava o
-            // mundo DUAS VEZES ao subir uma simulacao.
-            //
-            // Com um agent.sh na raiz, a pergunta some. "sim: iniciar" pergunta
-            // uma vez; "sim: iniciar com missão", duas -- mundo e missao, que
-            // sao perguntas de verdade e diferentes entre si.
+            // NAO pergunta o mundo, e esse e o ponto: o VS Code resolve os
+            // inputs POR TASK, e duas tasks do mesmo dependsOn citando
+            // ${input:mundo} perguntavam o mundo duas vezes.
             "command": "bash scripts/agent.sh",
             "problemMatcher": [],
             "presentation": {
@@ -169,17 +140,9 @@
             "label": "sim: parar tudo",
             "detail": "Encerra a simulação INTEIRA — e confere que encerrou",
             "type": "shell",
-            // O que estava aqui era: pkill -x px4; pkill -f 'gz sim';
-            // pkill -x MicroXRCEAgent; rm -rf /tmp/px4*.
-            //
-            // Tres processos, de um total muito maior. A ponte de imagem, os
-            // nos da missao, o sim2d, a estacao de solo e o rosbag ficavam de
-            // pe -- e a rodada seguinte subia por cima deles, com dois
-            // publicadores no mesmo topico. O sistema responde, com dados de
-            // antes, e ninguem desconfia.
-            //
-            // O script tambem manda SIGINT antes de SIGKILL (um rosbag morto a
-            // KILL nao fecha o arquivo) e sai com erro se sobrou algo.
+            // Antes eram tres pkill de um total muito maior, e a rodada
+            // seguinte subia por cima do que sobrava. O script manda SIGINT
+            // antes de SIGKILL e sai com erro se algo sobreviver.
             "command": "bash scripts/parar.sh",
             "problemMatcher": [],
             "presentation": {
@@ -193,13 +156,8 @@
             "label": "sim2d: rodar uma fase",
             "detail": "Simulador 2D + missão, sem Gazebo — segundos em vez de minutos",
             "type": "shell",
-            // UMA task, e nao duas com dependsOn.
-            //
-            // Eram "sim2d: simulador" e "sim2d: missão", e as duas citavam
-            // ${input:pacoteMissao}. Como o VS Code resolve os inputs por task,
-            // ele perguntava QUAL FASE duas vezes para rodar uma. O sim2d.sh
-            // agora sobe as duas coisas, na ordem certa, e derruba a missao
-            // junto no fim -- o que o `sleep 3` da task antiga nao garantia.
+            // UMA task: eram duas, e as duas citavam ${input:pacoteMissao},
+            // entao o VS Code perguntava a fase duas vezes.
             "command": "P='${input:pacoteMissao}'; bash scripts/sim2d.sh \"${P#*:}\" --com-missao",
             "problemMatcher": [],
             "presentation": {
@@ -219,12 +177,8 @@
             "label": "perfil",
             "detail": "Qual perfil de ambiente esta máquina está usando",
             "type": "shell",
-            // Dava para listar os perfis e para escolher um, e nao dava para
-            // perguntar em qual voce esta. Numa equipe com Jetson (Humble) e
-            // Raspberry (Jazzy) ao mesmo tempo, e a mesma pergunta que "em que
-            // maquina eu estou" -- e ela aparece quando algo se comporta de
-            // forma inesperada, que e a pior hora para ter de abrir um arquivo
-            // escondido para descobrir.
+            // Com Jetson (Humble) e Raspberry (Jazzy) ao mesmo tempo, "qual
+            // perfil" e a mesma pergunta que "em que maquina eu estou".
             "command": "./doctor.sh --current && echo && ./doctor.sh --list",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "clear": true }
@@ -242,12 +196,8 @@
             "label": "voo: pré-voo",
             "detail": "Com a missão no ar: confere o sistema RODANDO antes de armar",
             "type": "shell",
-            // O docs/CONTRATOS.md garante que o codigo e a documentacao
-            // concordam. Esta task pega o caso em que os dois concordam e A
-            // MAQUINA faz outra coisa: o topico que ninguem publica, o QoS que
-            // nao casa, o intrinseco que continua sendo placeholder. Nenhuma
-            // dessas falhas imprime erro; todas produzem um sistema que sobe,
-            // nao reclama, e voa cego.
+            // Pega o caso em que codigo e documentacao concordam e A MAQUINA
+            // faz outra coisa. Nenhuma dessas falhas imprime erro.
             "command": "P='${input:pacoteMissao}'; bash scripts/preflight.sh \"${P#*:}\"",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "clear": true }
@@ -264,11 +214,8 @@
             "label": "voo: QGroundControl",
             "detail": "Abre o QGC — procura o AppImage onde quer que ele esteja",
             "type": "shell",
-            // Sem caminho fixo: o AppImage tem 180 MB, nao entra no
-            // repositorio, e cada maquina o guardou num lugar diferente. O
-            // script procura, e quem quiser fixar usa a chave `qgc.path` do
-            // perfil da maquina -- que e o manifesto de onde ESTA maquina
-            // guarda as coisas.
+            // Sem caminho fixo: o AppImage nao entra no repositorio. Para
+            // fixar, use a chave `qgc.path` do perfil da maquina.
             "command": "bash scripts/qgc.sh",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "reveal": "silent" }
@@ -277,13 +224,8 @@
             "label": "voo: ground station",
             "detail": "Sobe a estação de solo de uma missão",
             "type": "shell",
-            // Usa ${input:pacoteGround}, e nao ${input:pacoteMissao}.
-            //
-            // A lista das missoes tinha dez opcoes e NENHUMA delas com um
-            // launch de solo -- as dez falhavam igual, com um "launch file not
-            // found" que parecia problema de compilacao. O pacoteGround e
-            // derivado de quem TEM o launch, entao a escolha errada deixa de
-            // existir.
+            // pacoteGround, e nao pacoteMissao: e derivado de quem TEM o
+            // launch de solo, entao a escolha errada deixa de existir.
             "command": "bash scripts/ground_station.sh '${input:pacoteGround}'",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "clear": true }

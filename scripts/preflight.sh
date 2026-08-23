@@ -8,16 +8,10 @@
 #
 # Rode com a missao no ar, ANTES de armar.
 #
-# POR QUE ELE EXISTE, se ja ha o docs/CONTRATOS.md e os testes
-#
-# Aquelas duas camadas garantem que o CODIGO e a DOCUMENTACAO concordam. Esta
-# pega o caso em que os dois concordam e A MAQUINA faz outra coisa: o topico
-# que ninguem publica, o QoS que nao casa, a camera que caiu no default porque
-# o launch nao passou o nome do no, o intrinseco que continua sendo placeholder.
-#
-# Nenhuma dessas falhas imprime erro. Todas produzem um sistema que sobe, nao
-# reclama, e voa cego. As duas mais caras deste repositorio -- "Publisher
-# count: 0" e o descasamento RELIABLE x BEST_EFFORT -- sao exatamente assim.
+# O docs/CONTRATOS.md e os testes garantem que o CODIGO e a DOCUMENTACAO
+# concordam. Esta camada pega o caso em que os dois concordam e A MAQUINA faz
+# outra coisa: topico sem publicador, QoS que nao casa, camera no default,
+# intrinseco ainda placeholder. Nenhuma dessas falhas imprime erro.
 #
 # Sai com codigo 0 se tudo passou, e 1 se algo reprovou.
 # =============================================================================

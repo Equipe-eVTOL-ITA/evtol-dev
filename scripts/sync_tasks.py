@@ -45,9 +45,8 @@ TASKS = WS_ROOT / ".vscode" / "tasks.json"
 # Diretorios em src/ que nao sao competicoes do time.
 IGNORAR = {"px4_msgs", "px4_ros2_interface", "evtol-dev"}
 
-# Repositorios do manifesto que sao de TERCEIROS. Estao pinados e sao
-# compilaveis, mas nao sao codigo do time: o px4_ros2_interface sozinho traz
-# catorze pacotes `example_*` que ninguem daqui compila de proposito.
+# Repositorios do manifesto que sao de terceiros: pinados e compilaveis, mas
+# nao sao codigo do time.
 TERCEIROS = {"px4_msgs", "px4_ros2_interface", "behaviortree_cpp"}
 
 
@@ -105,21 +104,9 @@ def pacotes(comp: str) -> list[str]:
 def pacotes_do_workspace() -> list[str]:
     """Todo pacote colcon de src/, sem qualificar por competicao.
 
-    POR QUE A LISTA DE BUILD DEIXOU DE SER `competicao:alvo`
-
-    Ela era qualificada como as outras, e isso escondia dois problemas.
-
-    Pacote que nao pertence a competicao nenhuma nao aparecia: camera_publisher,
-    cv_nodes, drone_lib, stdstates. Justamente os que mais se mexe, e os unicos
-    que quebram todas as missoes de uma vez -- nao havia como compila-los pela
-    task.
-
-    E `all` fazia a mesma coisa nos quatro prefixos, porque os build.sh das
-    competicoes rodam `colcon build` sobre o src/ inteiro. `cbr2026:all` e
-    `sae2026:all` eram o mesmo comando com um rotulo diferente.
-
-    O `scripts/build.sh` da raiz aceita nome de pacote e pronto, entao a lista
-    aqui e plana. A competicao nao entra porque nunca fez diferenca.
+    Qualificada, a lista escondia os pacotes que nao pertencem a competicao
+    nenhuma (camera_publisher, drone_lib, stdstates) e fazia `all` significar a
+    mesma coisa nos quatro prefixos.
     """
     try:
         r = subprocess.run(
@@ -134,12 +121,9 @@ def pacotes_do_workspace() -> list[str]:
 
 
 def pacotes_dos_repos_do_manifesto() -> set[str]:
-    """Pacotes que vem dos repositorios listados no evtol.repos.
+    """Pacotes dos repositorios do evtol.repos, menos os de terceiros.
 
-    O evtol.repos e a fronteira entre "o codigo do time" e "o que por acaso
-    esta em src/". Usa-la aqui e o mesmo criterio que o scripts/build.sh usa
-    no --changed. Os repositorios de TERCEIROS ficam de fora: estao no
-    manifesto, mas nao sao o que alguem procura na lista de compilar.
+    Mesmo criterio do --changed do scripts/build.sh.
     """
     manifesto = WS_ROOT / "evtol.repos"
     if not manifesto.is_file():
@@ -182,11 +166,8 @@ LAUNCHES_DE_SOLO = ("ground.launch.py", "ground_station.launch.py",
 def pacotes_de_solo(comp: str) -> list[str]:
     """Pacotes da competicao que tem uma estacao de solo para subir.
 
-    A task "voo: ground station" oferecia a mesma lista das missoes -- dez
-    opcoes, e NENHUMA delas com um launch de solo. As dez falhavam igual, com
-    um "launch file not found" que parecia problema de compilacao.
-
-    Mesmo criterio das missoes: so entra na lista o que da para lancar.
+    Mesmo criterio das missoes: so entra na lista o que da para lancar. Antes a
+    task oferecia dez opcoes e nenhuma tinha launch de solo.
     """
     base = SRC / comp
     if not base.is_dir():
@@ -243,19 +224,12 @@ def montar_inputs() -> list[dict]:
         solo_q += pacotes_de_solo(c)
     mundos_q = sorted(set(mundos_q))
     missoes_q = sorted(set(missoes_q))
-    # Nao qualificado: ha um input so, entao nao existe combinacao invalida a
-    # evitar -- que era a unica razao de qualificar os outros.
+    # Nao qualificado: ha um input so, sem combinacao invalida a evitar.
     solo_q = sorted(set(solo_q))
 
-    # Os tres primeiros sao alvos do scripts/build.sh, nao pacotes.
-    #
-    # Depois deles vem os pacotes DO MANIFESTO, e so entao o resto.
-    #
-    # A ordem importa porque a lista tem 60 itens e o VS Code a mostra inteira:
-    # src/ guarda tambem trabalho legado (itajuba_*, sae_*, cbr2025_fase4) e os
-    # catorze `example_*` que vem dentro do px4_ros2_interface. Deixa-los de
-    # fora seria mentir -- sao compilaveis, e um dia alguem vai precisar de um.
-    # Mas eles nao podem ficar na frente do que o time compila todo dia.
+    # Alvos do build.sh primeiro, depois os pacotes DO MANIFESTO, e so entao o
+    # resto. A lista tem 60 itens e o VS Code a mostra inteira: o legado e os
+    # catorze `example_*` sao compilaveis, mas nao vao na frente.
     todos = pacotes_do_workspace()
     do_manifesto = pacotes_dos_repos_do_manifesto()
     alvos_q = (["all", "deps", "changed"]
@@ -282,13 +256,8 @@ def montar_inputs() -> list[dict]:
         pick("pacoteMissao", "Missão (competição:missão)", missoes_q,
              "sae2026:mission_1"),
         pick("pacoteGround", "Estação de solo (pacote)", solo_q, "fase3"),
-        # Texto livre, e nao lista.
-        #
-        # A lista suspensa cobre o que existe AGORA. Um pacote criado hoje so
-        # aparece nela depois de rodar este script, e quem acabou de criar a
-        # missao e justamente quem precisa compila-la. Este input aceita
-        # qualquer nome -- e varios, separados por espaco -- sem esperar
-        # sincronizacao nenhuma. O build.sh valida e sugere se errar.
+        # Texto livre: um pacote criado hoje so entra na lista suspensa depois
+        # de rodar este script, e quem acabou de cria-lo precisa compila-lo.
         {
             "id": "pacotesDigitados",
             "description": "Pacote(s) a compilar, separados por espaço",
