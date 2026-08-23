@@ -144,7 +144,12 @@ jobs:
               vistos = citados(label)
               for nome in set(vistos):
                   if nome not in inputs:
-                      falhas.append(f"'{label}' usa ${{input:{nome}}}, que nao existe")
+                      # Sem chave-dupla-cifrao literal aqui: o GitHub Actions
+                      # a le como delimitador de expressao e RECUSA o workflow
+                      # inteiro -- "workflow file issue", nenhum passo roda.
+                      # Concatenar evita a sequencia.
+                      falhas.append(
+                          "'" + label + "' usa ${input:" + nome + "}, que nao existe")
                   # O VS Code resolve os inputs POR TASK. Duas tasks da mesma
                   # cadeia citando o mesmo input = duas perguntas iguais.
                   if vistos.count(nome) > 1:
