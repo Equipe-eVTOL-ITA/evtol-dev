@@ -145,7 +145,7 @@ repositories:
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
-    version: v0.3.0   # YawSweep, LandAndDisarm, pouso da altura real
+    version: v0.4.0   # YawSweep, LandAndDisarm, pouso da altura real
     # YawSweepState varre um setor em guinada usando a diferenca NORMALIZADA em
     # relacao ao centro; a versao de 2025 usava limites absolutos e girava sem
     # parar quando o setor cruzava a descontinuidade em pi.
