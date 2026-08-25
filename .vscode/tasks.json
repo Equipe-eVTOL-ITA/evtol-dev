@@ -153,6 +153,26 @@
         },
 
         {
+            "label": "sim: matar o Gazebo",
+            "detail": "Encerra só o Gazebo — o PX4 e o agente ficam de pé",
+            "type": "shell",
+            // O Gazebo e o que trava com mais frequencia, e derrubar a
+            // simulacao inteira so por causa dele custa a subida toda de novo.
+            //
+            // ATENCAO: o PX4 SITL depende do Gazebo. Sem ele o PX4 continua
+            // vivo mas cego -- nao ha mais fisica nem sensor. Serve para
+            // desentalar o Gazebo antes de parar o resto, nao para trocar o
+            // Gazebo por baixo de um PX4 que continua voando.
+            "command": "bash scripts/parar.sh --so gazebo",
+            "problemMatcher": [],
+            "presentation": {
+                "panel": "dedicated",
+                "reveal": "always",
+                "showReuseMessage": false
+            }
+        },
+
+        {
             "label": "sim2d: rodar uma fase",
             "detail": "Simulador 2D + missão, sem Gazebo — segundos em vez de minutos",
             "type": "shell",
