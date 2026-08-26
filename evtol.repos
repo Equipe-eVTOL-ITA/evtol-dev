@@ -17,7 +17,12 @@ repositories:
   custom_msgs:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/custom_msgs.git
-    version: v0.1.0
+    version: v0.2.0   # BaseCircle e MultiBaseDetection para a Itajuba 2026
+    # Acrescenta BaseCircle.msg (deteccao de base circular: posicao, raio e
+    # ponto de saida) e MultiBaseDetection.msg (lista de BaseDetection com o
+    # frame JPEG de origem), e a dependencia sensor_msgs que a segunda exige.
+    # Ja consumido pelo cv_nodes (base_detector_itjbx2026, circle_detector) e
+    # pelo itajuba_2026 (fase1/2/4).
 
   # ---------- Layer 1: PX4 hardware abstraction ----------
   drone_lib:
