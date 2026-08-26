@@ -23,7 +23,7 @@ repositories:
   drone_lib:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-    version: v0.4.0   # remove a API de gestos, que estava morta
+    version: v0.5.0   # reativa o Drone::takeoff(), para o AUTO_TAKEOFF do PX4
     # A v0.2.0 declara getHandGestures(), getHandLocation() e resetHands(), mas
     # as inscricoes nos topicos nunca eram criadas: as chamadas
     # create_subscription se perderam entre 2025 e 2026. Os getters devolviam
@@ -190,7 +190,7 @@ repositories:
   maze_geometry:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/maze_geometry.git
-    version: v0.2.0   # o mapa declara o drone, e recusa janela por onde ele nao passa
+    version: v0.2.1   # corrige a convencao angular do paraPontos (LaserScan e FRD)
     # A CHECAGEM QUE FALTAVA, e que nenhuma navegacao substitui. Medido no
     # model.sdf: um x500 tem 0.772 m de envergadura -- braco de 0.246 m mais
     # meia-helice de 0.140 m -- e NAO passa por uma janela de 0.60 m. Faltam
@@ -241,7 +241,7 @@ repositories:
   sim2d:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/sim2d.git
-    version: v0.2.2   # o mundo do Gazebo que o PX4 aceita, com grama e luz
+    version: v0.2.3   # o scan sai na convencao do LaserScan, e nao espelhado
     # A v0.2.0 gerava um mundo com so quatro plugins do Gazebo. Ele carregava, o
     # `gz sdf -k` dizia "Valid" e o LIDAR publicava -- e o PX4 recusava armar com
     # "Accel Sensor 0 missing", uma mensagem que nao menciona o mundo em lugar
