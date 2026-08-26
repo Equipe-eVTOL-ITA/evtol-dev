@@ -120,6 +120,19 @@ def pacotes_do_workspace() -> list[str]:
     return sorted({p for p in r.stdout.split() if p})
 
 
+def repos_git() -> list[str]:
+    """Repositorios git do workspace, para a task de commitar e pushar.
+
+    Derivado do que existe, e nao do manifesto: quem acabou de clonar um repo
+    novo a mao precisa comita-lo tanto quanto os pinados. O `evtol-dev` vem
+    primeiro por ser a raiz -- e o unico que nao mora em src/.
+    """
+    if not SRC.is_dir():
+        return ["evtol-dev"]
+    achados = sorted(d.name for d in SRC.iterdir() if (d / ".git").exists())
+    return ["evtol-dev"] + achados
+
+
 def pacotes_dos_repos_do_manifesto() -> set[str]:
     """Pacotes dos repositorios do evtol.repos, menos os de terceiros.
 
@@ -264,6 +277,24 @@ def montar_inputs() -> list[dict]:
             "type": "promptString",
             "default": "",
         },
+        # ── git: commitar e pushar ──────────────────────────────────────────
+        pick("repoGit", "Qual repositório commitar e pushar", repos_git(),
+             "evtol-dev"),
+        {
+            "id": "msgCommit",
+            "description": (
+                "Mensagem (Conventional Commits em português: "
+                "tipo: o que mudou, minúsculo, sem acento)"
+            ),
+            "type": "promptString",
+            "default": "",
+        },
+        # A pergunta que a task existe para fazer. "com CI" primeiro, porque o
+        # default de uma pergunta e o que a maioria escolhe sem pensar -- e o
+        # que deve ser seguro.
+        pick("ciDoPush",
+             "Rodar o CI neste push? ('sem CI' marca o commit com [skip ci])",
+             ["com CI", "sem CI"], "com CI"),
     ]
 
 
