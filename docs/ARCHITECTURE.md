@@ -469,32 +469,54 @@ colcon list
 
 ## Versioning Policy
 
-The workspace is pinned via [evtol.repos](evtol.repos), which references **tags** on each repo. Versioning is intentionally light — full semantic versioning is overkill for an undergrad team.
+The workspace is pinned via [evtol.repos](evtol.repos). There are **two
+manifests**, because there are two different questions:
 
-### Tag scheme
-
-Each team repo carries `vMAJOR.MINOR.PATCH` tags. Bumping rules:
-
-| Bump | When to use | Example |
+| Manifest | Answers | Pins |
 |---|---|---|
-| **Patch** (`v0.1.0 → v0.1.1`) | Backwards-compatible fix; same API; safe to drop in. | A CV node bugfix; a typo fix in a state. |
-| **Minor** (`v0.1.0 → v0.2.0`) | New feature or any change downstream packages must adopt. | New public method on `Drone`; new state in `stdstates`. |
-| **Major** (`v0.x → v1.0`) | Deliberate "this is stable" declaration. Don't use yet — reserve for when an API is locked. |
+| `evtol.repos` (versioned) | "what is the team developing **now**?" | `main` for the 15 team repos; tags for the 3 third-party ones |
+| `voo.repos` (generated) | "what exactly **flew** that day?" | the exact revision of every repo |
 
-### Tagging workflow
+### Why it works this way
+
+Pinning tags for day-to-day development cost more than it bought. Every
+`vcs import` left all 18 repos in detached HEAD — the single most common error
+for newcomers — and every one-line fix needed **two** pull requests: one in the
+library, another here raising the pin. Until the second one landed, the work
+existed only on GitHub.
+
+Worse, the staleness was silent. The `vision_geometry` pin read
+`v0.1.2  # bloco-ancora do frame otico da camera`, and tag `v0.1.2` did **not**
+contain that block — it landed on `main` after the tag was cut. CI read the
+tag, failed to find the block, and rejected a `CONTRATOS.md` that was correct.
+`main` stayed red for weeks and nobody could see why.
+
+Reproducibility was not thrown away — it moved to where it pays:
 
 ```bash
-# On the branch you want to freeze (usually main):
-git tag -a v0.2.0 -m "Brief note on what changed since v0.1.x"
-git push origin v0.2.0
+scripts/congelar.sh                  # writes voo.repos from the tested workspace
+./setup.sh --manifesto voo.repos     # on the Jetson / Raspberry Pi
 ```
 
-Then update [evtol.repos](evtol.repos) to pin the consumer repo to the new tag, and open a PR.
+Freeze on the machine that just compiled and tested. What it records is what is
+actually there, not what someone wrote in a file weeks earlier. A flight worth
+remembering gets its manifest committed under a name of its own
+(`cbr2026-final.repos`).
 
-### What `evtol.repos` pins
+### The cost, stated plainly
 
-- **Tags or commit hashes only.** Never branches (`main`, `jetson`, etc.) — branches move; pins must not.
-- A separate `sae<year>.repos` lives in each competition repo to freeze exactly what flew that year.
+A break on a library's `main` now reaches everyone immediately, instead of
+being contained until a repin. That is the price of the trade — and partly a
+gain: integration breakage surfaces the same day. The `noturno` workflow, which
+builds the whole workspace on both distros daily and opens an issue on failure,
+is the net underneath it.
+
+### Tags
+
+Team repos still carry `vMAJOR.MINOR.PATCH` tags, but tagging is now an
+occasional act of record-keeping — a milestone worth naming — not a step in the
+daily loop. Third-party repos stay pinned to tags: they aren't ours, and have
+no reason to float.
 
 ---
 
@@ -540,7 +562,8 @@ When the team consistently follows the rules above, `evtol.repos` stays a meanin
 4. **Communicate between nodes via ROS2 topics/services** — don't import Python code across packages directly.
 5. **Each competition owns its scripts** — simulation configs live in the competition repo's `scripts/` folder.
 6. **Nothing above `drone_lib` touches NED/FRD or `px4_msgs`** — `drone_lib` is the only PX4 boundary. See *Frames & Units Convention*.
-7. **Pin tags, never branches** in `evtol.repos`. See *Versioning Policy*.
+7. **`evtol.repos` follows `main`; `voo.repos` freezes what flew.** Freeze
+   before a competition with `scripts/congelar.sh`. See *Versioning Policy*.
 8. **No long-lived branches.** See *Git Workflow Practices*.
 9. **Versão que já quebrou o time vira linha num perfil.** Um diagnóstico de
    ambiente que não virou checagem no `env/<perfil>.yaml` vai ser feito de novo

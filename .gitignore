@@ -62,3 +62,8 @@ __pycache__/
 # ao lado continua versionado: ele e que impede o colcon de compilar o que
 # esta aqui dentro.
 referencia/*/
+
+# Manifesto congelado, gerado por scripts/congelar.sh no momento do voo. Um
+# congelamento que merece ficar registrado ganha nome proprio e e commitado:
+# cbr2026-final.repos.
+voo.repos
