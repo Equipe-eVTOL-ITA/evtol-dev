@@ -148,7 +148,12 @@ url="$(gh pr view --json url --jq .url 2>/dev/null || true)"
 if [[ -z "$url" ]]; then
   echo
   echo "--- abrindo o pull request ---"
-  gh pr create --fill
+  # `--fill` sozinho tira o titulo do NOME DO BRANCH quando ha mais de um
+  # commit -- e o PR nasce chamado "refactor/github fluido". O titulo do PR
+  # vira a mensagem do merge, entao ele precisa do mesmo formato do commit.
+  # Daqui sai explicito: titulo = a sua mensagem, corpo = os commits do branch.
+  corpo="$(git log origin/main..HEAD --reverse --format='%B' 2>/dev/null || true)"
+  gh pr create --title "$mensagem" --body "${corpo:-$mensagem}"
   url="$(gh pr view --json url --jq .url 2>/dev/null || true)"
 else
   echo
