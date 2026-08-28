@@ -28,13 +28,18 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Empurrar de novo cancela o run anterior em vez de enfileirar atras dele.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: manifesto, perfis e scripts
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Instalar ferramentas
         run: |
@@ -161,30 +166,28 @@ jobs:
           sys.exit(1 if falhas else 0)
           PY
 
-      # O docs/CONTRATOS.md e gerado do codigo; defasado, ele mente. Precisa do
-      # src/ importado, raso e nas versoes pinadas do manifesto.
-      - name: docs/CONTRATOS.md esta em dia com o codigo
-        run: |
-          python3 -m pip install --quiet vcstool
-          vcs import --shallow src < evtol.repos
-          python3 scripts/contratos.py --check
-
       # -----------------------------------------------------------------------
       # O manifesto e a razao de ser deste repositorio. Um pin que aponta para
-      # uma tag inexistente so aparece quando alguem tenta montar o workspace.
+      # uma referencia inexistente so aparece quando alguem monta o workspace.
       # -----------------------------------------------------------------------
       - name: Toda versao do evtol.repos existe no remoto
         run: |
           python3 - <<'PY'
           import re, subprocess, sys, tempfile, yaml
 
-          # A politica do manifesto aceita TAG ou HASH DE COMMIT. A primeira
-          # versao desta checagem so sabia resolver tag (`ls-remote --tags`), e
-          # um pin por hash -- legitimo, e o unico caminho para um repositorio
-          # sem tags -- reprovaria aqui com "tag inexistente".
+          # O manifesto aceita tres formas, e a checagem precisa das tres:
+          #
+          #   BRANCH  os repositorios da equipe acompanham a `main`
+          #   TAG     os de terceiros (px4_msgs v1.15.4, behaviortree 4.9.1)
+          #   HASH    um voo.repos congelado, ou um repo sem tag nenhuma
+          #
+          # Historico desta checagem: a primeira versao so sabia resolver tag
+          # (`ls-remote --tags`) e reprovava pin por hash; agora um pin por
+          # branch reprovaria do mesmo jeito. Cada forma tem o seu jeito de
+          # perguntar ao remoto.
           HASH = re.compile(r"^[0-9a-f]{40}$")
 
-          def resolve(url, versao):
+          def existe(url, versao):
               if HASH.match(versao):
                   # Nao da para perguntar por um commit com ls-remote. A forma
                   # barata e buscar so ele, com profundidade 1.
@@ -194,19 +197,21 @@ jobs:
                           ["git", "-C", tmp, "fetch", "-q", "--depth", "1",
                            url, versao],
                           capture_output=True, text=True, timeout=180)
-                      return out.returncode == 0
-              out = subprocess.run(
-                  ["git", "ls-remote", "--tags", "--refs", url, versao],
-                  capture_output=True, text=True, timeout=90)
-              return bool(out.stdout.strip())
+                      return out.returncode == 0, "hash"
+              for flag, tipo in (("--heads", "branch"), ("--tags", "tag")):
+                  out = subprocess.run(
+                      ["git", "ls-remote", flag, "--refs", url, versao],
+                      capture_output=True, text=True, timeout=90)
+                  if out.stdout.strip():
+                      return True, tipo
+              return False, "?"
 
           repos = yaml.safe_load(open("evtol.repos"))["repositories"]
           falhas = []
           for nome, r in sorted(repos.items()):
               versao = str(r["version"])
-              ok = resolve(r["url"], versao)
-              tipo = "hash" if HASH.match(versao) else "tag "
-              print(f"  {'OK  ' if ok else 'FALTA'} {nome:<22} {tipo} {versao}")
+              ok, tipo = existe(r["url"], versao)
+              print(f"  {'OK  ' if ok else 'FALTA'} {nome:<22} {tipo:<6} {versao}")
               if not ok:
                   falhas.append(f"{nome} {versao}")
           if falhas:
@@ -220,3 +225,62 @@ jobs:
         run: |
           find . -name '*.sh' -not -path './.git/*' -print0 \
             | xargs -0 shellcheck --severity=warning || true
+
+  # ---------------------------------------------------------------------------
+  # O docs/CONTRATOS.md e GERADO do codigo. Antes, o CI so conferia se ele
+  # estava em dia e REPROVAVA o pull request quando nao estava -- cobrando de
+  # um humano um trabalho que e de robo, e sem dizer o que fazer alem de "rode
+  # o script".
+  #
+  # O caso que motivou a mudanca: o pin do vision_geometry dizia
+  # `v0.1.2  # bloco-ancora do frame otico da camera`, mas o bloco so entrou na
+  # main DEPOIS da tag. O CI lia a tag, nao via o bloco, e reprovava um
+  # CONTRATOS.md que estava certo do ponto de vista de quem o gerou. Ficou
+  # vermelho por semanas e ninguem conseguia ver por que.
+  #
+  # Agora o job regenera e COMMITA no proprio branch do pull request. Se nada
+  # mudou, nao faz nada.
+  #
+  # Nao roda em pull request vindo de fork (nao ha permissao de escrita) nem
+  # direto na main (a protecao de branch recusa, e corretamente).
+  # ---------------------------------------------------------------------------
+  contratos:
+    name: CONTRATOS.md (regenerado pelo bot)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml
+          python3 -m pip install --quiet vcstool
+
+      - name: Importar o workspace
+        run: |
+          # O `src/` e gitignorado: nao existe no checkout, e o `vcs import`
+          # recusa um caminho inexistente ("Path 'src' does not exist"). A
+          # ausencia deste mkdir deixou a main deste repositorio vermelha por
+          # 15 runs seguidos. O setup.sh sempre teve o mkdir; o CI nao.
+          mkdir -p src
+          vcs import --shallow src < evtol.repos
+
+      - name: Regenerar e commitar se mudou
+        run: |
+          python3 scripts/contratos.py
+          if git diff --quiet -- docs/CONTRATOS.md; then
+            echo "docs/CONTRATOS.md ja estava em dia."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/CONTRATOS.md
+          git commit -m "docs: regenera o CONTRATOS.md (bot)"
+          git push
+          echo "::notice::docs/CONTRATOS.md estava defasado; o bot regenerou e commitou no branch."

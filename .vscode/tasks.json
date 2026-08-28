@@ -260,13 +260,39 @@
             "presentation": { "panel": "dedicated", "clear": true }
         },
         {
-            "label": "git: commitar e pushar",
-            "detail": "Commita e pusha um repo — pergunta se roda o CI ou não",
+            "label": "git: publicar",
+            "detail": "Do arquivo editado ao PR que se mergeia sozinho quando o CI passa",
             "type": "shell",
             // A ordem dos inputs e a ordem em que o VS Code pergunta: repo,
             // mensagem, e so entao o CI. A pergunta do CI vem por ultimo de
             // proposito -- e a unica com consequencia fora da sua maquina.
+            //
+            // O script faz o caminho inteiro: cria o branch se voce estiver na
+            // main, commita, empurra, abre o PR e liga o auto-merge. Nao ha
+            // mais tag nem repin depois -- o evtol.repos acompanha a main.
             "command": "bash scripts/git_push.sh '${input:repoGit}' '${input:msgCommit}' '${input:ciDoPush}'",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "git: atualizar tudo",
+            "detail": "Puxa a main de todos os repositórios do workspace",
+            "type": "shell",
+            // Com o manifesto acompanhando a `main`, receber o trabalho dos
+            // outros deixou de exigir `vcs import` (que trocava o que estava
+            // checado out): e um pull em cada repositorio.
+            "command": "git pull --ff-only && vcs pull src",
+            "problemMatcher": [],
+            "presentation": { "panel": "dedicated", "clear": true }
+        },
+        {
+            "label": "voo: congelar",
+            "detail": "Gera voo.repos com a revisão exata de cada repo — rode antes de competir",
+            "type": "shell",
+            // A reprodutibilidade do workspace mora aqui. O evtol.repos
+            // responde "o que o time desenvolve agora"; o voo.repos responde
+            // "o que exatamente voou naquele dia". Ver scripts/congelar.sh.
+            "command": "bash scripts/congelar.sh",
             "problemMatcher": [],
             "presentation": { "panel": "dedicated", "clear": true }
         }

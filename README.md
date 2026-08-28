@@ -22,7 +22,8 @@ cd ~/evtol/dev && ./setup.sh --profile desktop-humble
 
 | Caminho | O que é |
 |---|---|
-| [evtol.repos](evtol.repos) | Manifesto de **código** — quais repositórios, em quais tags |
+| [evtol.repos](evtol.repos) | Manifesto de **código** — quais repositórios; acompanha a `main` de cada um |
+| [scripts/congelar.sh](scripts/congelar.sh) | Gera o `voo.repos`: a revisão exata do que vai voar |
 | [env/](env/) | Manifesto de **ambiente** — um perfil por plataforma |
 | [doctor.sh](doctor.sh) | Verifica se a máquina bate com o perfil declarado |
 | [setup.sh](setup.sh) | Bootstrap: doctor → import → rosdep → build |
@@ -118,8 +119,15 @@ ninguém sabe por quê"*.
 
 | Manifesto | Pina | Verificado por |
 |---|---|---|
-| `evtol.repos` | Código — repositórios git, em tags | `vcs import` |
+| `evtol.repos` | Código, no dia a dia — acompanha a `main` de cada repo da equipe | `vcs import` |
+| `voo.repos` | Código, congelado — a revisão exata do que voou | `scripts/congelar.sh` |
 | `env/<perfil>.yaml` | Ambiente — distro, Gazebo, bridge, PX4, apt, pip | `doctor.sh` |
+
+O `evtol.repos` responde *"o que o time está desenvolvendo agora"*; um merge
+numa biblioteca chega em todo mundo com `vcs pull src`, sem tag e sem repin. O
+`voo.repos` responde *"o que exatamente voou naquele dia"*, e é gerado no
+momento em que essa pergunta importa — antes de competir, na máquina que acabou
+de testar. Veja [docs/GIT.md](docs/GIT.md) seção 5.
 
 ```bash
 ./doctor.sh --list                      # perfis disponíveis (o atual leva '*')

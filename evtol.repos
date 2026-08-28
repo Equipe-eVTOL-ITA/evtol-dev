@@ -3,9 +3,33 @@
 # Usage (from the workspace root, e.g. ~/evtol/dev):
 #   vcs import src < src/evtol-dev/evtol.repos
 #
-# Every entry MUST pin to a tag (or commit hash), never a branch — pinning to
-# a branch reintroduces the "whatever is checked out right now" problem this
-# manifest exists to solve. See ARCHITECTURE.md ("Versioning policy").
+# DOIS MANIFESTOS, DUAS PERGUNTAS DIFERENTES
+#
+#   evtol.repos  (este)  -> "o que o time esta desenvolvendo AGORA"
+#   voo.repos            -> "o que exatamente voou naquele dia"
+#
+# Os repositorios da equipe acompanham a `main`. Os de terceiros seguem em tag:
+# nao sao nossos, nao ha por que flutuarem.
+#
+# Por que mudou. Pinar tag no dia a dia cobrava um preco que nao se pagava:
+# todo `vcs import` deixava os 18 repositorios em detached HEAD (o erro numero
+# um de quem chegava no workspace), e cada correcao de uma linha exigia DOIS
+# pull requests -- um na biblioteca, outro aqui subindo o pin. Enquanto o
+# segundo nao subia, o trabalho existia so no GitHub.
+#
+# Pior: a defasagem era silenciosa. O pin do vision_geometry dizia
+# `v0.1.2  # bloco-ancora do frame otico da camera` -- e a tag v0.1.2 nao tinha
+# o bloco, que so entrou na main depois. O CI, que lia a tag, reprovava o
+# docs/CONTRATOS.md por semanas, e ninguem conseguia ver por que.
+#
+# A garantia de reprodutibilidade NAO foi jogada fora -- ela mudou de lugar,
+# para onde de fato paga:
+#
+#     scripts/congelar.sh          # gera voo.repos com o hash exato de cada HEAD
+#     ./setup.sh --manifesto voo.repos
+#
+# Rode o congelamento antes de competir, com o workspace que voce acabou de
+# testar. Veja ARCHITECTURE.md ("Versioning Policy") e docs/GIT.md.
 #
 # Non-ROS prerequisites (PX4-Autopilot, Micro-XRCE-DDS-Agent, PX4-gazebo-models)
 # are NOT listed here — they live outside the colcon workspace. Their pinned
@@ -17,18 +41,18 @@ repositories:
   custom_msgs:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/custom_msgs.git
-    version: v0.2.0   # BaseCircle e MultiBaseDetection para a Itajuba 2026
-    # Acrescenta BaseCircle.msg (deteccao de base circular: posicao, raio e
-    # ponto de saida) e MultiBaseDetection.msg (lista de BaseDetection com o
-    # frame JPEG de origem), e a dependencia sensor_msgs que a segunda exige.
-    # Ja consumido pelo cv_nodes (base_detector_itjbx2026, circle_detector) e
-    # pelo itajuba_2026 (fase1/2/4).
+    version: main
+    # Contem BaseCircle.msg (deteccao de base circular: posicao, raio e ponto
+    # de saida) e MultiBaseDetection.msg (lista de BaseDetection com o frame
+    # JPEG de origem), e a dependencia sensor_msgs que a segunda exige. Ja
+    # consumido pelo cv_nodes (base_detector_itjbx2026, circle_detector) e pelo
+    # itajuba_2026 (fase1/2/4).
 
   # ---------- Layer 1: PX4 hardware abstraction ----------
   drone_lib:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/drone_lib.git
-    version: v0.5.0   # reativa o Drone::takeoff(), para o AUTO_TAKEOFF do PX4
+    version: main
     # A v0.2.0 declara getHandGestures(), getHandLocation() e resetHands(), mas
     # as inscricoes nos topicos nunca eram criadas: as chamadas
     # create_subscription se perderam entre 2025 e 2026. Os getters devolviam
@@ -49,7 +73,7 @@ repositories:
   ozzy_bridge:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/ozzy_bridge.git
-    version: v0.1.0   # primeira versao: compila nos dois distros, nunca voou
+    version: main
     # A Pixhawk 2.4.8 e FMUv2/FMUv3 -- STM32F427, 1 MB de flash util (2 MB nas
     # revisoes boas). O AP_DDS, que daria ROS 2 nativo no ArduPilot, nao cabe
     # nessa build. Sobra MAVLink pela TELEM1, e a ponte e um ESP32 rodando
@@ -85,11 +109,11 @@ repositories:
   camera_publisher:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/camera_publisher.git
-    version: v0.1.2   # deps de pip movidas para env/<perfil>.yaml
+    version: main
   cv_nodes:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cv_nodes.git
-    version: v0.3.1   # imagem de debug util no gesture_detector
+    version: main
     # A v0.3.0 so desenhava a anotacao quando havia mao, e um quadro limpo e
     # ambiguo entre "nao vejo mao" e "nao chegou quadro nenhum". A v0.3.1
     # mostra contador de quadros, "SEM MAO" em vermelho, e o centroide ligado a
@@ -122,7 +146,7 @@ repositories:
   vision_geometry:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/vision_geometry.git
-    version: v0.1.2   # bloco-ancora do frame otico da camera no CONTRATOS.md
+    version: main
     # A v0.1.0 aceita qualquer resultado do PnP. Uma base saindo do quadro
     # encolhe na imagem, e o PnP le isso como distancia maior: medido em SITL,
     # uma caixa de 63 px produziu um alvo a 6,6 m e dez metros ABAIXO do solo.
@@ -138,7 +162,7 @@ repositories:
   fsm:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/fsm.git
-    version: v0.2.0   # ciclo de vida do State publico
+    version: main
     # Na v0.1.0, act/on_enter/on_exit sao privados com `friend class FSM`: so a
     # FSM pode executar um estado, e nenhum outro executor pode existir. O stdbt
     # precisa executar os mesmos estados como acoes de Behavior Tree.
@@ -150,7 +174,7 @@ repositories:
   stdstates:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdstates.git
-    version: v0.5.0   # takeoff_mode pelo YAML: stdtakeoff ou px4 (EXIGE drone_lib v0.5.0)
+    version: main
     # YawSweepState varre um setor em guinada usando a diferenca NORMALIZADA em
     # relacao ao centro; a versao de 2025 usava limites absolutos e girava sem
     # parar quando o setor cruzava a descontinuidade em pi.
@@ -176,7 +200,7 @@ repositories:
   stdbt:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/stdbt.git
-    version: v0.1.0
+    version: main
     # Contrapartida do stdstates para Behavior Trees. Um adaptador de sessenta
     # linhas expoe qualquer fsm::State como acao de BT, para que uma fase possa
     # escolher o motor sem que os onze estados validados em voo sejam
@@ -195,7 +219,7 @@ repositories:
   maze_geometry:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/maze_geometry.git
-    version: v0.2.1   # corrige a convencao angular do paraPontos (LaserScan e FRD)
+    version: main
     # A CHECAGEM QUE FALTAVA, e que nenhuma navegacao substitui. Medido no
     # model.sdf: um x500 tem 0.772 m de envergadura -- braco de 0.246 m mais
     # meia-helice de 0.140 m -- e NAO passa por uma janela de 0.60 m. Faltam
@@ -246,7 +270,7 @@ repositories:
   sim2d:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/sim2d.git
-    version: v0.2.3   # o scan sai na convencao do LaserScan, e nao espelhado
+    version: main
     # A v0.2.0 gerava um mundo com so quatro plugins do Gazebo. Ele carregava, o
     # `gz sdf -k` dizia "Valid" e o LIDAR publicava -- e o PX4 recusava armar com
     # "Accel Sensor 0 missing", uma mensagem que nao menciona o mundo em lugar
@@ -297,18 +321,18 @@ repositories:
   telemetry_handler:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/telemetry_handler.git
-    version: v0.2.0   # python3-tkinter -> python3-tk; opencv-python p/ o perfil
+    version: main
 
   # ---------- Layer 5: competition ----------
   sae2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/sae2026.git
-    version: v0.1.0   # tagged from the jetson deployment branch
+    version: main
 
   cbr2026:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/cbr2026.git
-    version: v0.7.1   # mundo do launch casa com o PX4_GZ_WORLD; lidar_offset do wanda
+    version: main
     # `cbr2026:fase4` nas tasks genericas, como a fase 1. A ponte gz->ROS do
     # LIDAR mora dentro do simulation.launch.py da fase: e a unica coisa que ela
     # tem a mais, e fica invisivel de fora.
@@ -390,7 +414,7 @@ repositories:
   ensaio_em_voo:
     type: git
     url: https://github.com/Equipe-eVTOL-ITA/ensaio_em_voo.git
-    version: v0.1.0
+    version: main
     # Ensaios de voo: manobras minimas que exercitam UMA capacidade do drone de
     # cada vez -- teste_grid_quadrado a translacao, teste_yaw o cabeceio --
     # para rodar antes de uma missao de competicao. Uma missao falha por muitos
