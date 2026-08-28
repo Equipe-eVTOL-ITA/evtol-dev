@@ -62,16 +62,13 @@ jobs:
           curl -fsSL -o evtol.repos \
             https://raw.githubusercontent.com/Equipe-eVTOL-ITA/evtol-dev/main/evtol.repos
 
-      # O `rosdep update` sozinho leva perto de um minuto e baixa sempre a
-      # mesma coisa. A chave troca por semana: novo o bastante para não
-      # segurar uma chave recém-publicada, velho o bastante para acertar o
-      # cache quase sempre.
-      - name: Cache do rosdep
-        uses: actions/cache@v4
-        with:
-          path: /root/.ros/rosdep
-          key: rosdep-humble-${{ github.run_id }}
-          restore-keys: rosdep-humble-
+      # NAO HA CACHE DE ROSDEP AQUI, de proposito. A primeira versao deste
+      # arquivo cacheava /root/.ros/rosdep e salvava ZERO byte; a segunda
+      # tentou /github/home/.ros/rosdep e salvou zero de novo. Medindo o log em
+      # vez de adivinhar o caminho: o `rosdep update` leva 3 SEGUNDOS. Os ~80s
+      # do passo sao o `rosdep install` rodando apt-get, que nenhum cache de
+      # sources.cache toca. Cachear apt e outro problema, e nao vale a
+      # complexidade aqui.
 
       # O ganho real. Sem ccache, todo run recompila o workspace inteiro do
       # zero; com ele, só o que mudou de fato.
@@ -81,6 +78,12 @@ jobs:
       # código muda. Uma chave de cache baseada nele serviria dependência
       # velha, silenciosamente — exatamente a classe de bug que o manifesto
       # veio evitar.
+      # ESCOPO. Um cache gravado num run de pull request fica em
+      # refs/pull/N/merge, e um gravado num run de branch fica em
+      # refs/heads/<branch>: os dois NAO se enxergam. So o cache da
+      # `main` e legivel por todos. Ou seja: o primeiro run de um PR
+      # novo e sempre frio, e o ganho aparece do segundo em diante --
+      # e depois que este workflow tiver rodado uma vez na main.
       - name: Cache do ccache
         uses: actions/cache@v4
         with:
