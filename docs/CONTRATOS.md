@@ -30,6 +30,28 @@ proprio codigo, onde ela pertence:
 
 ## Convencoes declaradas no codigo
 
+### `decolagem.modos`
+
+Fonte: [src/stdstates/include/stdstates/takeoff/registro.hpp](src/stdstates/include/stdstates/takeoff/registro.hpp)
+
+```
+A abordagem de decolagem e uma chave de YAML, e nao codigo:
+
+    takeoff_mode: stdtakeoff   # padrao -- sobe por setpoint, em OFFBOARD,
+                               #   ate o `takeoff_height` da missao
+    takeoff_mode: px4          # AUTO_TAKEOFF do firmware; sobe ate o
+                               #   MIS_TAKEOFF_ALT do PX4 e IGNORA o
+                               #   takeoff_height; sai de offboard e o
+                               #   estado reentra ao terminar
+
+Parametros do stdtakeoff: takeoff_height (FRD, negativo),
+max_vertical_velocity, position_tolerance.
+Parametros do px4: takeoff_timeout (30 s).
+
+A reancoragem do referencial (setHomePosition) NAO e da estrategia: e do
+TakeoffState, e vale para as duas. Ver o contrato px4.reancoragem-do-home.
+```
+
 ### `frames.camera-optica`
 
 Fonte: [src/vision_geometry/include/vision_geometry/ground_projector.hpp](src/vision_geometry/include/vision_geometry/ground_projector.hpp)
@@ -156,6 +178,8 @@ pousar, nao a reconhece, e pousa nela de novo. E de novo.
 Medido em SITL: o NED cru do PX4 ficou em (3.417, -0.159) o ciclo inteiro --
 o drone nunca saiu do lugar -- enquanto o FRD visto pela missao saltava de
 (-0.16, -3.03) para (0.00, 0.03) a cada redecolagem.
+
+Vale para as DUAS abordagens de decolagem: e do estado, e nao da estrategia.
 ```
 
 ### `px4.sequencia-de-offboard`
@@ -250,7 +274,7 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/contexto.hpp:278](src/cbr2026/fase4/include/fase4/nodes/contexto.hpp#L278) | atualizarVies() -> setLocalPosition |
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/contexto.hpp:295](src/cbr2026/fase4/include/fase4/nodes/contexto.hpp#L295) | parar() -> setLocalPosition |
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/example_node.hpp:91](src/cbr2026/fase4/include/fase4/nodes/example_node.hpp#L91) | onHalted() -> setLocalVelocity |
-| cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp:127](src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp#L127) | onRunning() -> setLocalPosition |
+| cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp:142](src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp#L142) | onRunning() -> setLocalPosition |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:20](src/drone_lib/src/motion_policy.cpp#L20) | MotionPolicy::irPara() -> irPara |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:34](src/drone_lib/src/motion_policy.cpp#L34) | MotionPolicy::irPara() -> setLocalPosition |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:47](src/drone_lib/src/motion_policy.cpp#L47) | MotionPolicy::parar() -> setLocalPosition |
@@ -326,8 +350,7 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | stdstates | [src/stdstates/include/stdstates/align_state.hpp:92](src/stdstates/include/stdstates/align_state.hpp#L92) | act() -> move_local_constant_step |
 | stdstates | [src/stdstates/include/stdstates/goto_state.hpp:54](src/stdstates/include/stdstates/goto_state.hpp#L54) | act() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/goto_state.hpp:59](src/stdstates/include/stdstates/goto_state.hpp#L59) | act() -> irPara |
-| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:66](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L66) | on_enter() -> land |
-| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:100](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L100) | act() -> disarm |
+| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:149](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L149) | act() -> disarm |
 | stdstates | [src/stdstates/include/stdstates/landing/estrategia.hpp:41](src/stdstates/include/stdstates/landing/estrategia.hpp#L41) | encerrar() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/landing/exponencial.hpp:84](src/stdstates/include/stdstates/landing/exponencial.hpp#L84) | passo() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/landing/exponencial.hpp:93](src/stdstates/include/stdstates/landing/exponencial.hpp#L93) | passo() -> setLocalVelocity |
@@ -345,10 +368,10 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:140](src/stdstates/include/stdstates/return_home_state.hpp#L140) | act() -> irPara |
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:147](src/stdstates/include/stdstates/return_home_state.hpp#L147) | act() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:151](src/stdstates/include/stdstates/return_home_state.hpp#L151) | act() -> irPara |
-| stdstates | [src/stdstates/include/stdstates/takeoff_state.hpp:139](src/stdstates/include/stdstates/takeoff_state.hpp#L139) | act() -> move_local_constant_step |
+| stdstates | [src/stdstates/include/stdstates/takeoff/stdtakeoff.hpp:83](src/stdstates/include/stdstates/takeoff/stdtakeoff.hpp#L83) | passo() -> move_local_constant_step |
 | stdstates | [src/stdstates/include/stdstates/yaw_sweep_state.hpp:106](src/stdstates/include/stdstates/yaw_sweep_state.hpp#L106) | sweep() -> setLocalVelocity |
 
-Total: **107** pontos.
+Total: **106** pontos.
 
 ## Topicos
 
@@ -464,6 +487,7 @@ exercitado na simulacao.
 | `fase1_node.pid_pos_kd` | 0.05 | 0.08 |
 | `fase1_node.pid_pos_kp` | 1.0 | 0.7 |
 | `fase1_node.position_tolerance` | 0.15 | 0.25 |
+| `fase1_node.takeoff_mode` | px4 | stdtakeoff |
 | `fase1_node.target_association_radius` | 1.0 | 1.2 |
 | `fase1_vision.camera_height` | 800 | 480 |
 | `fase1_vision.camera_width` | 800 | 640 |
@@ -481,6 +505,7 @@ exercitado na simulacao.
 |---|---|---|
 | `fase3_node.climb_pid_kd` | 0.09 | 0.12 |
 | `fase3_node.climb_pid_kp` | 0.9 | 0.6 |
+| `fase3_node.climb_tracking` | 1.0 | 0.0 |
 | `fase3_node.control_speed` | 0.4 | 0.25 |
 | `fase3_node.detection_timeout` | 3.0 | 5.0 |
 | `fase3_node.landing_velocity_max` | 0.5 | 0.35 |
@@ -521,18 +546,18 @@ exercitado na simulacao.
 
 | parametro | simulacao | voo |
 |---|---|---|
-| `fase4_node.ciclos_estaveis` | 5.0 | 10.0 |
+| `fase4_node.ciclos_estaveis` | 8.0 | 10.0 |
+| `fase4_node.landing_mode` | px4 | exponencial |
 | `fase4_node.landing_velocity_max` | 0.5 | 0.35 |
 | `fase4_node.landing_velocity_min` | 0.15 | 0.12 |
-| `fase4_node.lidar_offset_frente` | 0.0 | 0.053 |
-| `fase4_node.max_horizontal_velocity` | 1.5 | 0.4 |
+| `fase4_node.max_horizontal_velocity` | 0.8 | 0.4 |
 | `fase4_node.max_vertical_velocity` | 1.2 | 0.7 |
-| `fase4_node.position_tolerance` | 0.15 | 0.25 |
+| `fase4_node.position_tolerance` | 0.2 | 0.25 |
 | `fase4_node.scan_parede_min` | 0.2 | 0.25 |
 | `fase4_node.scan_salto_max` | 0.15 | 0.2 |
 | `fase4_node.scan_tolerancia` | 0.03 | 0.05 |
 | `fase4_node.takeoff_height` | -1.0 | -0.9 |
-| `fase4_node.tolerancia_centro` | 0.08 | 0.06 |
+| `fase4_node.tolerancia_movimento` | 0.08 | 0.06 |
 | `fase4_node.yaw_tolerance` | 0.05 | 0.03 |
 
 ### teste_yaw
@@ -693,12 +718,5 @@ exercitado na simulacao.
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:222](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L222) | `if (calib_.image_width <= 0 \|\| calib_.image_height <= 0) {` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:453](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L453) | `cx + meia_extensao_x >= calib_.image_width - margem \|\|` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:454](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L454) | `cy + meia_extensao_y >= calib_.image_height - margem;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:153](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L153) | `published_size <= 0)` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:159](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L159) | `c.image_width = published_size;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:160](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L160) | `c.image_height = published_size;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:172](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L172) | `const double scale = static_cast<double>(published_size) / static_cast<double>(crop);` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:192](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L192) | `if (calib_.image_width <= 0 \|\| calib_.image_height <= 0) {` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:423](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L423) | `cx + meia_extensao_x >= calib_.image_width - margem \|\|` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:424](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L424) | `cy + meia_extensao_y >= calib_.image_height - margem;` |
 | [src/vision_geometry/test/test_ground_projector.cpp:42](src/vision_geometry/test/test_ground_projector.cpp#L42) | `c.image_width = 800;` |
 | [src/vision_geometry/test/test_ground_projector.cpp:43](src/vision_geometry/test/test_ground_projector.cpp#L43) | `c.image_height = 800;` |
