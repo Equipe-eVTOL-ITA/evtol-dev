@@ -1,0 +1,139 @@
+# =============================================================================
+# Build noturno — o workspace INTEIRO, nas duas distros.
+# =============================================================================
+#
+# POR QUE ESTE ARQUIVO EXISTE
+#
+# Ele carrega duas garantias que sairam do caminho critico do pull request.
+#
+# 1. JAZZY. O time voa com duas distros ao mesmo tempo -- Jetson (Humble) e
+#    Raspberry Pi (Jazzy). Antes, todo PR de toda biblioteca exigia as duas,
+#    mais um job de lint que recompilava tudo de novo: 14 a 26 minutos para
+#    aprovar uma correcao de uma linha. Uma espera dessas nao e paga em
+#    seguranca, e paga em gente que para de abrir PR. Aqui o Jazzy e conferido
+#    uma vez por dia, e a deriva Humble-only aparece em ate 24h.
+#
+# 2. INTEGRACAO. O evtol.repos acompanha a `main` dos repositorios da equipe,
+#    entao uma quebra numa biblioteca chega imediatamente a todo mundo. Esse e
+#    o preco da fluidez -- e esta e a rede que o sustenta. O CI de cada
+#    repositorio compila SO O QUE ELE PRECISA (`--packages-up-to`); aqui se
+#    compila o workspace todo junto, que e o que de fato roda no drone.
+#
+# Se quebrar, abre uma issue. Uma so: os runs seguintes comentam na mesma, em
+# vez de encher o repositorio de issues iguais.
+# =============================================================================
+
+name: noturno
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC = 03:00 em Brasilia; pronto antes do dia comecar
+  workflow_dispatch:
+
+jobs:
+  workspace:
+    name: workspace (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    container: ros:${{ matrix.distro }}-ros-base
+
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - humble   # Jetson Orin Nano + maquinas de desenvolvimento
+          - jazzy    # Raspberry Pi
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Instalar ferramentas
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git curl ca-certificates ccache \
+            python3-vcstool python3-colcon-common-extensions python3-yaml
+
+      - name: Importar o workspace
+        run: |
+          mkdir -p src
+          vcs import --shallow src < evtol.repos
+
+      # Qual revisao de cada repositorio entrou neste run. Com pin em `main`,
+      # "o noturno de ontem passou" so quer dizer alguma coisa se estiver
+      # escrito o que era a main de ontem.
+      - name: Revisoes deste run
+        run: |
+          for d in src/*/; do
+            printf '  %-24s %s\n' "$(basename "$d")" \
+              "$(git -C "$d" rev-parse --short HEAD 2>/dev/null || echo '?')"
+          done
+
+      - name: rosdep
+        run: |
+          rosdep update --rosdistro ${{ matrix.distro }}
+          rosdep install --from-paths src --ignore-src -y \
+            --rosdistro ${{ matrix.distro }} || \
+            echo "::warning::rosdep reportou erros; seguindo para o build"
+
+      - name: Compilar o workspace inteiro
+        shell: bash
+        run: |
+          source /opt/ros/${{ matrix.distro }}/setup.bash
+          colcon build --event-handlers console_direct+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+  # ---------------------------------------------------------------------------
+  # O aviso roda FORA do container: precisa do actions/github-script, e as
+  # imagens ros:*-ros-base nao tem node.
+  # ---------------------------------------------------------------------------
+  avisar:
+    name: abrir issue se quebrou
+    runs-on: ubuntu-latest
+    needs: workspace
+    if: failure()
+    permissions:
+      issues: write
+
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const titulo = "O build noturno do workspace quebrou";
+            const corpo =
+              "O workflow `noturno` falhou em " +
+              new Date().toISOString().slice(0, 10) + ".\n\n" +
+              "O `evtol.repos` acompanha a `main` dos repositorios da equipe, " +
+              "entao isto costuma ser uma quebra de INTEGRACAO: um merge que " +
+              "passou no CI do proprio repositorio e quebrou o workspace " +
+              "montado, ou que compila em Humble e nao em Jazzy.\n\n" +
+              "Log: " + context.serverUrl + "/" + context.repo.owner + "/" +
+              context.repo.repo + "/actions/runs/" + context.runId + "\n\n" +
+              "O passo **Revisoes deste run** diz qual commit de cada " +
+              "repositorio entrou -- e por onde comecar a procurar.";
+
+            const abertas = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "noturno",
+            });
+
+            const jaExiste = abertas.data.find(i => i.title === titulo);
+            if (jaExiste) {
+              // Comenta na issue que ja existe. Um noturno quebrado por uma
+              // semana nao deve virar sete issues identicas.
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: jaExiste.number,
+                body: corpo,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: titulo,
+                body: corpo,
+                labels: ["noturno"],
+              });
+            }

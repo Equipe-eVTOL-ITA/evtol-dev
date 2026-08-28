@@ -30,6 +30,28 @@ proprio codigo, onde ela pertence:
 
 ## Convencoes declaradas no codigo
 
+### `decolagem.modos`
+
+Fonte: [src/stdstates/include/stdstates/takeoff/registro.hpp](src/stdstates/include/stdstates/takeoff/registro.hpp)
+
+```
+A abordagem de decolagem e uma chave de YAML, e nao codigo:
+
+    takeoff_mode: stdtakeoff   # padrao -- sobe por setpoint, em OFFBOARD,
+                               #   ate o `takeoff_height` da missao
+    takeoff_mode: px4          # AUTO_TAKEOFF do firmware; sobe ate o
+                               #   MIS_TAKEOFF_ALT do PX4 e IGNORA o
+                               #   takeoff_height; sai de offboard e o
+                               #   estado reentra ao terminar
+
+Parametros do stdtakeoff: takeoff_height (FRD, negativo),
+max_vertical_velocity, position_tolerance.
+Parametros do px4: takeoff_timeout (30 s).
+
+A reancoragem do referencial (setHomePosition) NAO e da estrategia: e do
+TakeoffState, e vale para as duas. Ver o contrato px4.reancoragem-do-home.
+```
+
 ### `frames.camera-optica`
 
 Fonte: [src/vision_geometry/include/vision_geometry/ground_projector.hpp](src/vision_geometry/include/vision_geometry/ground_projector.hpp)
@@ -156,6 +178,8 @@ pousar, nao a reconhece, e pousa nela de novo. E de novo.
 Medido em SITL: o NED cru do PX4 ficou em (3.417, -0.159) o ciclo inteiro --
 o drone nunca saiu do lugar -- enquanto o FRD visto pela missao saltava de
 (-0.16, -3.03) para (0.00, 0.03) a cada redecolagem.
+
+Vale para as DUAS abordagens de decolagem: e do estado, e nao da estrategia.
 ```
 
 ### `px4.sequencia-de-offboard`
@@ -250,7 +274,7 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/contexto.hpp:278](src/cbr2026/fase4/include/fase4/nodes/contexto.hpp#L278) | atualizarVies() -> setLocalPosition |
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/contexto.hpp:295](src/cbr2026/fase4/include/fase4/nodes/contexto.hpp#L295) | parar() -> setLocalPosition |
 | cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/example_node.hpp:91](src/cbr2026/fase4/include/fase4/nodes/example_node.hpp#L91) | onHalted() -> setLocalVelocity |
-| cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp:127](src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp#L127) | onRunning() -> setLocalPosition |
+| cbr2026 | [src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp:142](src/cbr2026/fase4/include/fase4/nodes/navegacao.hpp#L142) | onRunning() -> setLocalPosition |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:20](src/drone_lib/src/motion_policy.cpp#L20) | MotionPolicy::irPara() -> irPara |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:34](src/drone_lib/src/motion_policy.cpp#L34) | MotionPolicy::irPara() -> setLocalPosition |
 | drone_lib | [src/drone_lib/src/motion_policy.cpp:47](src/drone_lib/src/motion_policy.cpp#L47) | MotionPolicy::parar() -> setLocalPosition |
@@ -267,43 +291,30 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | ensaio_em_voo | [src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp:98](src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp#L98) | act() -> setLocalVelocity |
 | ensaio_em_voo | [src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp:114](src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp#L114) | act() -> setLocalVelocity |
 | ensaio_em_voo | [src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp:122](src/ensaio_em_voo/teste_yaw/include/teste_yaw/states/rotate_state.hpp#L122) | act() -> setLocalPosition |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp:87](src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp#L87) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp:96](src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp#L96) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp:113](src/sae2026/mission_1/include/mission_1/states/descend_for_shape_state.hpp#L113) | act() -> move_local_constant_step |
 | sae2026 | [src/sae2026/mission_1/include/mission_1/states/go_to_aruco_state.hpp:86](src/sae2026/mission_1/include/mission_1/states/go_to_aruco_state.hpp#L86) | act() -> move_local_by_speed |
 | sae2026 | [src/sae2026/mission_1/include/mission_1/states/go_to_aruco_state.hpp:112](src/sae2026/mission_1/include/mission_1/states/go_to_aruco_state.hpp#L112) | act() -> move_local_by_speed |
 | sae2026 | [src/sae2026/mission_1/include/mission_1/states/go_to_base_state.hpp:61](src/sae2026/mission_1/include/mission_1/states/go_to_base_state.hpp#L61) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_1/include/mission_1/states/go_to_base_state.hpp:92](src/sae2026/mission_1/include/mission_1/states/go_to_base_state.hpp#L92) | act() -> move_local_by_speed |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp:62](src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp#L62) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp:79](src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp#L79) | act() -> move_local_constant_step |
 | sae2026 | [src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp:80](src/sae2026/mission_1/include/mission_1/states/initial_aruco_search_state.hpp#L80) | act() -> move_local_by_vel_as_position |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/search_aruco_state.hpp:128](src/sae2026/mission_1/include/mission_1/states/search_aruco_state.hpp#L128) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/search_aruco_state.hpp:166](src/sae2026/mission_1/include/mission_1/states/search_aruco_state.hpp#L166) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/search_base_state.hpp:122](src/sae2026/mission_1/include/mission_1/states/search_base_state.hpp#L122) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1/include/mission_1/states/search_base_state.hpp:147](src/sae2026/mission_1/include/mission_1/states/search_base_state.hpp#L147) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/descend_for_shape_state.hpp:97](src/sae2026/mission_1_H/include/mission_1/states/descend_for_shape_state.hpp#L97) | act() -> move_local_constant_step |
 | sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/go_to_aruco_state.hpp:86](src/sae2026/mission_1_H/include/mission_1/states/go_to_aruco_state.hpp#L86) | act() -> move_local_by_speed |
 | sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/go_to_aruco_state.hpp:112](src/sae2026/mission_1_H/include/mission_1/states/go_to_aruco_state.hpp#L112) | act() -> move_local_by_speed |
 | sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/go_to_base_state.hpp:82](src/sae2026/mission_1_H/include/mission_1/states/go_to_base_state.hpp#L82) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/go_to_base_state.hpp:106](src/sae2026/mission_1_H/include/mission_1/states/go_to_base_state.hpp#L106) | act() -> setMixedSetpoint |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/h_search_base_state.hpp:131](src/sae2026/mission_1_H/include/mission_1/states/h_search_base_state.hpp#L131) | act() -> setLocalPosition |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp:63](src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp#L63) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp:81](src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp#L81) | act() -> move_local_by_vel_as_position |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/search_aruco_state.hpp:128](src/sae2026/mission_1_H/include/mission_1/states/search_aruco_state.hpp#L128) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/search_aruco_state.hpp:166](src/sae2026/mission_1_H/include/mission_1/states/search_aruco_state.hpp#L166) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/search_base_state.hpp:122](src/sae2026/mission_1_H/include/mission_1/states/search_base_state.hpp#L122) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/search_base_state.hpp:147](src/sae2026/mission_1_H/include/mission_1/states/search_base_state.hpp#L147) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp:67](src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp#L67) | act() -> setLocalPosition |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp:79](src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp#L79) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:67](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L67) | act() -> setLocalPosition |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:91](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L91) | act() -> move_local_constant_step |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:118](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L118) | move_local_constant_step() -> move_local_constant_step |
+| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/h_search_base_state.hpp:129](src/sae2026/mission_1_H/include/mission_1/states/h_search_base_state.hpp#L129) | act() -> setLocalPosition |
+| sae2026 | [src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp:80](src/sae2026/mission_1_H/include/mission_1/states/initial_aruco_search_state.hpp#L80) | act() -> move_local_by_vel_as_position |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp:51](src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp#L51) | act() -> setLocalPosition |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp:73](src/sae2026/mission_2/include/mission_2/states/approach_hose_state.hpp#L73) | act() -> setLocalVelocity |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:66](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L66) | act() -> setLocalPosition |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:92](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L92) | act() -> move_local_constant_step |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp:119](src/sae2026/mission_2/include/mission_2/states/goto_ball_state.hpp#L119) | move_local_constant_step() -> move_local_constant_step |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_base_state.hpp:64](src/sae2026/mission_2/include/mission_2/states/goto_base_state.hpp#L64) | act() -> setLocalPosition |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/goto_base_state.hpp:80](src/sae2026/mission_2/include/mission_2/states/goto_base_state.hpp#L80) | act() -> move_local_constant_step |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/lookat_ball_state.hpp:74](src/sae2026/mission_2/include/mission_2/states/lookat_ball_state.hpp#L74) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/lookat_ball_state.hpp:122](src/sae2026/mission_2/include/mission_2/states/lookat_ball_state.hpp#L122) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp:135](src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp#L135) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp:183](src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp#L183) | act() -> setMixedSetpoint |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp:209](src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp#L209) | act() -> setLocalPosition |
-| sae2026 | [src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp:237](src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp#L237) | act() -> setMixedSetpoint |
+| sae2026 | [src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp:236](src/sae2026/mission_2/include/mission_2/states/mangueira_align_state.hpp#L236) | act() -> setMixedSetpoint |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/rise_state.hpp:107](src/sae2026/mission_2/include/mission_2/states/rise_state.hpp#L107) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/rise_state.hpp:128](src/sae2026/mission_2/include/mission_2/states/rise_state.hpp#L128) | act() -> setLocalPosition |
 | sae2026 | [src/sae2026/mission_2/include/mission_2/states/search_ball_state.hpp:110](src/sae2026/mission_2/include/mission_2/states/search_ball_state.hpp#L110) | act() -> move_local_constant_step |
@@ -326,8 +337,7 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | stdstates | [src/stdstates/include/stdstates/align_state.hpp:92](src/stdstates/include/stdstates/align_state.hpp#L92) | act() -> move_local_constant_step |
 | stdstates | [src/stdstates/include/stdstates/goto_state.hpp:54](src/stdstates/include/stdstates/goto_state.hpp#L54) | act() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/goto_state.hpp:59](src/stdstates/include/stdstates/goto_state.hpp#L59) | act() -> irPara |
-| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:66](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L66) | on_enter() -> land |
-| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:100](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L100) | act() -> disarm |
+| stdstates | [src/stdstates/include/stdstates/land_and_disarm_state.hpp:149](src/stdstates/include/stdstates/land_and_disarm_state.hpp#L149) | act() -> disarm |
 | stdstates | [src/stdstates/include/stdstates/landing/estrategia.hpp:41](src/stdstates/include/stdstates/landing/estrategia.hpp#L41) | encerrar() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/landing/exponencial.hpp:84](src/stdstates/include/stdstates/landing/exponencial.hpp#L84) | passo() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/landing/exponencial.hpp:93](src/stdstates/include/stdstates/landing/exponencial.hpp#L93) | passo() -> setLocalVelocity |
@@ -345,10 +355,10 @@ as que uma mudanca de regra de movimento teria de tocar uma a uma.
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:140](src/stdstates/include/stdstates/return_home_state.hpp#L140) | act() -> irPara |
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:147](src/stdstates/include/stdstates/return_home_state.hpp#L147) | act() -> setLocalVelocity |
 | stdstates | [src/stdstates/include/stdstates/return_home_state.hpp:151](src/stdstates/include/stdstates/return_home_state.hpp#L151) | act() -> irPara |
-| stdstates | [src/stdstates/include/stdstates/takeoff_state.hpp:139](src/stdstates/include/stdstates/takeoff_state.hpp#L139) | act() -> move_local_constant_step |
+| stdstates | [src/stdstates/include/stdstates/takeoff/stdtakeoff.hpp:83](src/stdstates/include/stdstates/takeoff/stdtakeoff.hpp#L83) | passo() -> move_local_constant_step |
 | stdstates | [src/stdstates/include/stdstates/yaw_sweep_state.hpp:106](src/stdstates/include/stdstates/yaw_sweep_state.hpp#L106) | sweep() -> setLocalVelocity |
 
-Total: **107** pontos.
+Total: **93** pontos.
 
 ## Topicos
 
@@ -360,9 +370,9 @@ assina: `/scan`
 
 ### cv_nodes
 
-publica: `/annotated_image/compressed`, `/base_detector/debug/bbox/compressed`, `/base_detector/debug/mask/compressed`, `/gesture_detector/debug/compressed`, `/gesture_detector/gestures`, `/gesture_detector/hand_location`, `/mangueira/angle`, `/mangueira/detections`, `/mangueira/position`, `/mangueira_detector/image/compressed`, `/mangueira_detector/mask/compressed`, `/manometer_error`, `/manometro_debug/compressed`, `/measured_pressure`, `/position_manometer`, `/qr_code_string`, `/vertical_classification`, `/window_detector/annotated`, `/window_detector/mask`, `ball_detection`, `ball_detection_image/compressed`, `ball_detector/mask/compressed`, `bouncing_detection`, `bouncing_detection_image/compressed`, `centroid`, `threshold`, `window_found`
+publica: `/annotated_image/compressed`, `/base_circle`, `/base_detector/debug/bbox/compressed`, `/base_detector/debug/mask/compressed`, `/base_detector_itjbx2026/debug/bbox/compressed`, `/base_detector_itjbx2026/debug/mask/compressed`, `/gesture_detector/debug/compressed`, `/gesture_detector/gestures`, `/gesture_detector/hand_location`, `/lane_detection`, `/mangueira/angle`, `/mangueira/detections`, `/mangueira/position`, `/mangueira_detector/image/compressed`, `/mangueira_detector/mask/compressed`, `/manometer_error`, `/manometro_debug/compressed`, `/measured_pressure`, `/position_manometer`, `/qr_code_string`, `/red_line_detection`, `/vertical_classification`, `/window_detector/annotated`, `/window_detector/mask`, `ball_detection`, `ball_detection_image/compressed`, `ball_detector/mask/compressed`, `bouncing_detection`, `bouncing_detection_image/compressed`, `centroid`, `circle_detector/debug/compressed`, `lane_detector/debug/compressed`, `lane_detector/mask/compressed`, `lane_detector/mask_overlay/compressed`, `red_line_detector/debug/compressed`, `red_line_detector/mask/compressed`, `red_line_detector/mask_overlay/compressed`, `threshold`, `window_found`
 
-assina: `/pressure_analysis`
+assina: `/base_circle`, `/circle_detector/shutdown`, `/pressure_analysis`
 
 ### drone_lib
 
@@ -382,7 +392,7 @@ assina: `/ozzy/armed`, `/ozzy/diagnostics`, `/ozzy/mode`, `/ozzy/pose`, `/ozzy/s
 
 publica: `/discovered_bases`, `/drone_trajectory`, `/mission_1/base_markers`, `/mission_1_H/base_markers`, `/pressure_analysis`
 
-assina: `/bouncing_detection`, `/mangueira/angle`, `/mangueira/position`, `/manometer_error`, `/measured_pressure`, `ball_detection`, `bouncing_detection`
+assina: `/bouncing_detection`, `/mangueira/angle`, `/mangueira/position`, `/manometer_error`, `/measured_pressure`, `/pressure_analysis`, `ball_detection`, `bouncing_detection`
 
 ### sim2d
 
@@ -464,6 +474,7 @@ exercitado na simulacao.
 | `fase1_node.pid_pos_kd` | 0.05 | 0.08 |
 | `fase1_node.pid_pos_kp` | 1.0 | 0.7 |
 | `fase1_node.position_tolerance` | 0.15 | 0.25 |
+| `fase1_node.takeoff_mode` | px4 | stdtakeoff |
 | `fase1_node.target_association_radius` | 1.0 | 1.2 |
 | `fase1_vision.camera_height` | 800 | 480 |
 | `fase1_vision.camera_width` | 800 | 640 |
@@ -481,6 +492,7 @@ exercitado na simulacao.
 |---|---|---|
 | `fase3_node.climb_pid_kd` | 0.09 | 0.12 |
 | `fase3_node.climb_pid_kp` | 0.9 | 0.6 |
+| `fase3_node.climb_tracking` | 1.0 | 0.0 |
 | `fase3_node.control_speed` | 0.4 | 0.25 |
 | `fase3_node.detection_timeout` | 3.0 | 5.0 |
 | `fase3_node.landing_velocity_max` | 0.5 | 0.35 |
@@ -521,18 +533,18 @@ exercitado na simulacao.
 
 | parametro | simulacao | voo |
 |---|---|---|
-| `fase4_node.ciclos_estaveis` | 5.0 | 10.0 |
+| `fase4_node.ciclos_estaveis` | 8.0 | 10.0 |
+| `fase4_node.landing_mode` | px4 | exponencial |
 | `fase4_node.landing_velocity_max` | 0.5 | 0.35 |
 | `fase4_node.landing_velocity_min` | 0.15 | 0.12 |
-| `fase4_node.lidar_offset_frente` | 0.0 | 0.053 |
-| `fase4_node.max_horizontal_velocity` | 1.5 | 0.4 |
+| `fase4_node.max_horizontal_velocity` | 0.8 | 0.4 |
 | `fase4_node.max_vertical_velocity` | 1.2 | 0.7 |
-| `fase4_node.position_tolerance` | 0.15 | 0.25 |
+| `fase4_node.position_tolerance` | 0.2 | 0.25 |
 | `fase4_node.scan_parede_min` | 0.2 | 0.25 |
 | `fase4_node.scan_salto_max` | 0.15 | 0.2 |
 | `fase4_node.scan_tolerancia` | 0.03 | 0.05 |
 | `fase4_node.takeoff_height` | -1.0 | -0.9 |
-| `fase4_node.tolerancia_centro` | 0.08 | 0.06 |
+| `fase4_node.tolerancia_movimento` | 0.08 | 0.06 |
 | `fase4_node.yaw_tolerance` | 0.05 | 0.03 |
 
 ### teste_yaw
@@ -554,31 +566,22 @@ exercitado na simulacao.
 | parametro | simulacao | voo |
 |---|---|---|
 | `mission_1_H_node.aruco_spiral_arc_step` | — | 0.5 |
-| `mission_1_H_node.aruco_spiral_step` | 1.0 | 0.7 |
 | `mission_1_H_node.base_align_frames` | 10.0 | — |
 | `mission_1_H_node.base_max_miss_ticks` | 60.0 | — |
 | `mission_1_H_node.base_tolerance` | 0.1 | 0.12 |
-| `mission_1_H_node.distancia_percorrida_perpendicular` | 2.5 | 3.0 |
-| `mission_1_H_node.lambda_1` | 0.0 | 0.3 |
-| `mission_1_H_node.lambda_2` | 1.2 | 1.8 |
-| `mission_1_H_node.lambda_3` | -1.2 | -1.8 |
-| `mission_1_H_node.lambda_4` | 0.0 | -0.3 |
-| `mission_1_H_node.max_horizontal_velocity` | 1.5 | 0.5 |
-| `mission_1_H_node.search_aruco_velocity` | 0.5 | 0.4 |
 | `mission_1_H_node.search_base_altitude` | -2.7 | — |
-| `mission_1_H_node.takeoff_height` | -2.5 | -1.4 |
-| `mission_1_H_node.z_max_search` | -2.5 | -1.4 |
+| `mission_1_H_node.takeoff_height` | -2.5 | -1.5 |
+| `mission_1_H_node.z_max_search` | -2.5 | -1.5 |
 
 ### mission_2
 
 | parametro | simulacao | voo |
 |---|---|---|
 | `mission_2_node.align_fine_frames` | 8.0 | — |
-| `mission_2_node.align_fine_tolerance` | 0.2 | — |
+| `mission_2_node.align_fine_tolerance` | 0.1 | — |
 | `mission_2_node.align_kd` | 0.1 | — |
 | `mission_2_node.align_kd_y` | 0.13 | 0.1 |
 | `mission_2_node.align_kd_yaw` | 0.05 | 0.1 |
-| `mission_2_node.align_ki_y` | 0.03 | 0.0 |
 | `mission_2_node.align_kp` | 0.4 | — |
 | `mission_2_node.align_kp_yaw` | 1.0 | 0.5 |
 | `mission_2_node.align_min_detections` | 8.0 | — |
@@ -586,26 +589,24 @@ exercitado na simulacao.
 | `mission_2_node.align_tolerance_yaw` | 0.15 | 0.05 |
 | `mission_2_node.align_translate_frames` | 5.0 | — |
 | `mission_2_node.align_translate_tolerance` | 0.25 | — |
-| `mission_2_node.align_yaw_frames` | 3.0 | — |
+| `mission_2_node.align_yaw_frames` | 5.0 | — |
 | `mission_2_node.ball_approach_velocity` | 0.5 | 0.12 |
-| `mission_2_node.ball_cam_scale` | 0.7 | — |
 | `mission_2_node.ball_centering_miss_tol` | 10.0 | 5.0 |
 | `mission_2_node.ball_confirm_frames` | 1.0 | 3.0 |
-| `mission_2_node.ball_diameter_m` | 0.25 | — |
-| `mission_2_node.ball_kd_x` | 0.5 | 0.1 |
+| `mission_2_node.ball_kd_x` | 0.3 | 0.1 |
 | `mission_2_node.ball_lookat_max_yaw_step` | 0.07 | 0.12 |
 | `mission_2_node.ball_lookat_yaw_kp` | 0.2 | 0.45 |
 | `mission_2_node.ball_lost_frames` | 15.0 | — |
 | `mission_2_node.ball_miss_frames` | 15.0 | 10.0 |
-| `mission_2_node.ball_resize_width` | 600.0 | — |
-| `mission_2_node.ball_trigger_score` | 12000.0 | 18000.0 |
+| `mission_2_node.ball_trigger_score` | 10000.0 | 18000.0 |
+| `mission_2_node.hose_approach_speed` | 0.5 | 0.2 |
 | `mission_2_node.hover_before_landing_ticks` | 40.0 | — |
 | `mission_2_node.max_horizontal_velocity_align` | 0.2 | — |
 | `mission_2_node.max_vel_goto` | 0.5 | — |
-| `mission_2_node.rise_target_z` | -2.0 | -2.8 |
+| `mission_2_node.rise_target_z` | -3.0 | -2.8 |
 | `mission_2_node.rise_timeout_s` | 12.0 | — |
-| `mission_2_node.search_radius` | 1.0 | 3.0 |
-| `mission_2_node.search_speed` | 0.2 | 0.5 |
+| `mission_2_node.search_radius` | 0.65 | 3.0 |
+| `mission_2_node.search_speed` | 0.3 | 0.5 |
 | `mission_2_node.takeoff_height` | -1.5 | -2.5 |
 | `mission_2_node.target_z` | -1.5 | -2.0 |
 
@@ -614,17 +615,12 @@ exercitado na simulacao.
 | parametro | simulacao | voo |
 |---|---|---|
 | `fase_3_node.align_kd` | 0.09 | 0.07 |
-| `fase_3_node.approach_settle_ticks` | 40.0 | — |
+| `fase_3_node.limit_value` | 50.0 | 40.0 |
 | `fase_3_node.manometer_approach_altitude` | -2.0 | -1.9 |
 | `fase_3_node.max_horizontal_velocity_align` | 0.25 | 0.3 |
 | `fase_3_node.position_tolerance_align` | 0.12 | 0.1 |
-| `fase_3_node.x1` | -6.2 | 2.5 |
-| `fase_3_node.x3` | 5.0 | -1.2 |
-| `fase_3_node.y1` | -2.0 | 0.0 |
-| `fase_3_node.y3` | -2.5 | -2.0 |
-| `fase_3_node.z1` | -2.2 | -1.6 |
-| `fase_3_node.z2` | -2.2 | -1.6 |
-| `fase_3_node.z3` | -2.2 | -1.6 |
+| `fase_3_node.step` | 0.7 | 0.25 |
+| `fase_3_node.x1` | -6.2 | -6.0 |
 | `manometro_detector.angle_at_0` | 240.0 | 90.0 |
 | `manometro_detector.angle_at_100` | -60.0 | -70.0 |
 | `manometro_detector.rotation_correction_deg` | 0.0 | 180.0 |
@@ -683,9 +679,18 @@ exercitado na simulacao.
 | [src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py:143](src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py#L143) | `scale = resize_width / float(frame.shape[1])` |
 | [src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py:144](src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py#L144) | `frame = cv2.resize(frame, (resize_width, int(frame.shape[0] * scale)))` |
 | [src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py:150](src/cv_nodes/ball_detector/ball_detector/ball_detector_node.py#L150) | `r = int(self.get_parameter('roi_margin').value)` |
+| [src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py:189](src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py#L189) | `resize_width = int(self.get_parameter('resize_width').value)` |
+| [src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py:190](src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py#L190) | `scale = resize_width / float(frame.shape[1])` |
+| [src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py:191](src/cv_nodes/circle_detector/evtol_circle_detector/circle_detector_node.py#L191) | `frame = cv2.resize(frame, (resize_width, int(frame.shape[0] * scale)))` |
+| [src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py:293](src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py#L293) | `resize_width = int(self.get_parameter('resize_width').value)` |
+| [src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py:294](src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py#L294) | `scale = resize_width / float(frame.shape[1])` |
+| [src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py:295](src/cv_nodes/lane_detector/evtol_lane_detector/lane_detector_node.py#L295) | `frame = cv2.resize(frame, (resize_width, int(frame.shape[0] * scale)))` |
 | [src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py:223](src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py#L223) | `resize_width = int(self.get_parameter('resize_width').value)` |
 | [src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py:224](src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py#L224) | `scale = resize_width / float(frame.shape[1])` |
 | [src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py:225](src/cv_nodes/mangueira_detector/mangueira_detector/mangueira_detector_node.py#L225) | `frame = cv2.resize(frame, (resize_width, int(frame.shape[0] * scale)))` |
+| [src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py:226](src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py#L226) | `resize_width = int(self.get_parameter('resize_width').value)` |
+| [src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py:227](src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py#L227) | `scale = resize_width / float(frame.shape[1])` |
+| [src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py:228](src/cv_nodes/red_line_detector/evtol_red_line_detector/red_line_detector_node.py#L228) | `frame = cv2.resize(frame, (resize_width, int(frame.shape[0] * scale)))` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:153](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L153) | `published_size <= 0)` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:159](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L159) | `c.image_width = published_size;` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:160](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L160) | `c.image_height = published_size;` |
@@ -693,12 +698,5 @@ exercitado na simulacao.
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:222](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L222) | `if (calib_.image_width <= 0 \|\| calib_.image_height <= 0) {` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:453](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L453) | `cx + meia_extensao_x >= calib_.image_width - margem \|\|` |
 | [src/vision_geometry/include/vision_geometry/ground_projector.hpp:454](src/vision_geometry/include/vision_geometry/ground_projector.hpp#L454) | `cy + meia_extensao_y >= calib_.image_height - margem;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:153](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L153) | `published_size <= 0)` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:159](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L159) | `c.image_width = published_size;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:160](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L160) | `c.image_height = published_size;` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:172](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L172) | `const double scale = static_cast<double>(published_size) / static_cast<double>(crop);` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:192](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L192) | `if (calib_.image_width <= 0 \|\| calib_.image_height <= 0) {` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:423](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L423) | `cx + meia_extensao_x >= calib_.image_width - margem \|\|` |
-| [src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp:424](src/vision_geometry/install/vision_geometry/include/vision_geometry/ground_projector.hpp#L424) | `cy + meia_extensao_y >= calib_.image_height - margem;` |
 | [src/vision_geometry/test/test_ground_projector.cpp:42](src/vision_geometry/test/test_ground_projector.cpp#L42) | `c.image_width = 800;` |
 | [src/vision_geometry/test/test_ground_projector.cpp:43](src/vision_geometry/test/test_ground_projector.cpp#L43) | `c.image_height = 800;` |

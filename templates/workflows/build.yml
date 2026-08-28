@@ -1,17 +1,20 @@
 # =============================================================================
-# CI — compila este repositório contra o workspace pinado, nos dois distros.
+# CI — compila este repositório contra o workspace, em Humble.
 # =============================================================================
 #
-# Por que existe: sem CI, "a main compila" é uma crença, não um fato. E o time
-# voa com DUAS distros ao mesmo tempo — Jetson (Humble) e Raspberry Pi (Jazzy),
-# às vezes na mesma competição. Uma biblioteca compartilhada que vira
-# Humble-only não dá nenhum sinal até alguém tentar usá-la na outra máquina,
-# normalmente no pior momento possível.
+# Por que existe: sem CI, "a main compila" é uma crença, não um fato.
 #
-# As versões das dependências vêm do `evtol.repos` do evtol-dev, não de uma
-# lista aqui. Assim o CI responde à pergunta certa: "este repositório funciona
-# com o workspace que o time realmente usa?" — e um pin bumpado lá que quebre
-# aqui aparece como falha aqui.
+# POR QUE SÓ HUMBLE AQUI. O time voa com duas distros — Jetson (Humble) e
+# Raspberry Pi (Jazzy). A versão anterior deste arquivo exigia as duas em todo
+# PR, mais um job de lint que recompilava o mundo uma terceira vez: 14 a 26
+# minutos de espera para aprovar uma correção de uma linha. O Jazzy passou a
+# ser verificado uma vez por dia, no workflow `noturno` do evtol-dev, que
+# compila o workspace INTEIRO — cobertura maior do que a daqui, e a deriva
+# Humble-only aparece em até 24h em vez de cair no PR de quem não a causou.
+#
+# As versões das dependências vêm do `evtol.repos` do evtol-dev. Como ele hoje
+# acompanha a `main` dos repositórios da equipe, este CI responde à pergunta
+# certa: "este repositório funciona com o workspace que o time tem AGORA?"
 # =============================================================================
 
 name: build
@@ -22,102 +25,35 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Empurrar de novo cancela o run anterior em vez de enfileirar atrás dele.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Sem variável de pacote: os pacotes deste repositório são descobertos com
 # `colcon list`. Assim o mesmo arquivo serve a repositórios de um pacote só
 # (drone_lib, stdstates) e a repositórios com vários (fsm, cv_nodes).
 
 jobs:
   build:
-    name: build (${{ matrix.distro }})
-    runs-on: ubuntu-latest
-    container: ros:${{ matrix.distro }}-ros-base
-
-    strategy:
-      fail-fast: false
-      matrix:
-        # Os dois são obrigatórios. O primeiro run do CI comprovou que a stack
-        # (px4_msgs + custom_msgs + drone_lib) compila em Jazzy — era a maior
-        # incógnita do workspace, já que o time voa com Jetson (Humble) e
-        # Raspberry Pi (Jazzy) na mesma competição.
-        distro:
-          - humble   # Jetson Orin Nano + máquina de desenvolvimento
-          - jazzy    # Raspberry Pi
-
-    steps:
-      - name: Instalar ferramentas
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git curl ca-certificates python3-vcstool python3-colcon-common-extensions python3-yaml
-
-      - name: Clonar este repositório em src/
-        uses: actions/checkout@v4
-        with:
-          path: src/${{ github.event.repository.name }}
-
-      - name: Buscar o manifesto do workspace
-        run: |
-          curl -fsSL -o evtol.repos \
-            https://raw.githubusercontent.com/Equipe-eVTOL-ITA/evtol-dev/main/evtol.repos
-
-      - name: Importar dependências nas versões pinadas
-        run: |
-          # Remove a própria entrada: este repositório vem do checkout acima,
-          # na revisão do PR — não da tag pinada.
-          python3 - <<'PY'
-          import yaml
-          m = yaml.safe_load(open("evtol.repos"))
-          m["repositories"].pop("${{ github.event.repository.name }}", None)
-          yaml.safe_dump(m, open("deps.repos", "w"))
-          PY
-          vcs import --shallow src < deps.repos
-
-      - name: rosdep
-        run: |
-          rosdep update --rosdistro ${{ matrix.distro }}
-          rosdep install --from-paths src --ignore-src -y \
-            --rosdistro ${{ matrix.distro }} || \
-            echo "::warning::rosdep reportou erros; seguindo para o build"
-
-      - name: Compilar
-        shell: bash
-        run: |
-          source /opt/ros/${{ matrix.distro }}/setup.bash
-          pkgs=$(colcon list --names-only --base-paths "src/${{ github.event.repository.name }}" | tr '\n' ' ')
-          echo "Pacotes deste repositório: $pkgs"
-          [ -n "$pkgs" ] || { echo "::error::nenhum pacote colcon encontrado"; exit 1; }
-          colcon build --packages-up-to $pkgs \
-            --event-handlers console_direct+ \
-            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
-
-  # ---------------------------------------------------------------------------
-  # Lint — informativo, não bloqueia.
-  #
-  # O `colcon test` deste pacote hoje roda apenas os linters do ament
-  # (cppcheck, lint_cmake, uncrustify, xmllint); não há teste unitário. Os dois
-  # de estilo reprovam num codigo que nunca teve lint. Ligar isso como
-  # obrigatorio de uma vez produziria uma parede de ruido e ensinaria o time a
-  # ignorar o CI.
-  #
-  # Fica visivel e nao bloqueante. Quando o estilo for acertado num PR proprio,
-  # remova o continue-on-error.
-  # ---------------------------------------------------------------------------
-  lint:
-    name: lint (informativo)
+    name: build (humble)
     runs-on: ubuntu-latest
     container: ros:humble-ros-base
-    continue-on-error: true
+
+    env:
+      CCACHE_DIR: /root/.ccache
+      CCACHE_MAXSIZE: 500M
 
     steps:
       - name: Instalar ferramentas
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            git curl ca-certificates python3-vcstool \
-            python3-colcon-common-extensions python3-yaml
+            git curl ca-certificates ccache \
+            python3-vcstool python3-colcon-common-extensions python3-yaml
 
       - name: Clonar este repositório em src/
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: src/${{ github.event.repository.name }}
 
@@ -126,26 +62,67 @@ jobs:
           curl -fsSL -o evtol.repos \
             https://raw.githubusercontent.com/Equipe-eVTOL-ITA/evtol-dev/main/evtol.repos
 
-      - name: Importar dependências nas versões pinadas
+      # O `rosdep update` sozinho leva perto de um minuto e baixa sempre a
+      # mesma coisa. A chave troca por semana: novo o bastante para não
+      # segurar uma chave recém-publicada, velho o bastante para acertar o
+      # cache quase sempre.
+      - name: Cache do rosdep
+        uses: actions/cache@v4
+        with:
+          path: /root/.ros/rosdep
+          key: rosdep-humble-${{ github.run_id }}
+          restore-keys: rosdep-humble-
+
+      # O ganho real. Sem ccache, todo run recompila o workspace inteiro do
+      # zero; com ele, só o que mudou de fato.
+      #
+      # NÃO existe cache dos clones de src/: o evtol.repos acompanha a `main`
+      # dos repositórios da equipe, então o hash do manifesto NÃO muda quando o
+      # código muda. Uma chave de cache baseada nele serviria dependência
+      # velha, silenciosamente — exatamente a classe de bug que o manifesto
+      # veio evitar.
+      - name: Cache do ccache
+        uses: actions/cache@v4
+        with:
+          path: /root/.ccache
+          key: ccache-humble-${{ github.sha }}
+          restore-keys: |
+            ccache-humble-
+
+      - name: Importar dependências
         run: |
+          # Remove a própria entrada: este repositório vem do checkout acima,
+          # na revisão do PR — não do que estiver no manifesto.
           python3 - <<'PY'
           import yaml
           m = yaml.safe_load(open("evtol.repos"))
           m["repositories"].pop("${{ github.event.repository.name }}", None)
           yaml.safe_dump(m, open("deps.repos", "w"))
           PY
+          mkdir -p src
           vcs import --shallow src < deps.repos
 
       - name: rosdep
         run: |
           rosdep update --rosdistro humble
-          rosdep install --from-paths src --ignore-src -y --rosdistro humble || true
+          rosdep install --from-paths src --ignore-src -y --rosdistro humble || \
+            echo "::warning::rosdep reportou erros; seguindo para o build"
 
-      - name: Compilar e rodar linters
+      - name: Compilar
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
           pkgs=$(colcon list --names-only --base-paths "src/${{ github.event.repository.name }}" | tr '\n' ' ')
-          colcon build --packages-up-to $pkgs
-          colcon test --packages-select $pkgs
-          colcon test-result --verbose
+          echo "Pacotes deste repositório: $pkgs"
+          [ -n "$pkgs" ] || { echo "::error::nenhum pacote colcon encontrado"; exit 1; }
+          colcon build --packages-up-to $pkgs \
+            --event-handlers console_direct+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                         -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      # Quantos acertos o cache teve. Se ficar perto de zero run após run, a
+      # chave está errada e alguém precisa olhar.
+      - name: Aproveitamento do ccache
+        if: always()
+        run: ccache --show-stats

@@ -26,14 +26,20 @@ set -euo pipefail
 
 profile=""
 skip_doctor=0
+manifesto_nome="evtol.repos"
 
 usage() {
     cat <<'EOF'
-Uso: setup.sh [--profile <nome>] [--skip-doctor] [--current]
+Uso: setup.sh [--profile <nome>] [--manifesto <arquivo>] [--skip-doctor]
 
   --profile <nome>   perfil de ambiente (ex.: desktop-humble).
                      Se omitido, usa o conteúdo de .evtol-profile.
                      Liste os disponíveis com: ./doctor.sh --list
+  --manifesto <arq>  qual manifesto de código importar. Padrão: evtol.repos,
+                     que acompanha a main de cada repositório da equipe.
+                     Antes de competir, use o congelado:
+                         ./setup.sh --manifesto voo.repos
+                     (gere-o com scripts/congelar.sh, no workspace testado)
   --current          mostra o perfil em uso nesta máquina e sai.
   --skip-doctor      pula a verificação de ambiente. NÃO use isso para
                      "resolver" uma falha do doctor — a falha é real.
@@ -43,6 +49,7 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --profile|-p) profile="${2:-}"; shift 2 ;;
+        --manifesto|-m) manifesto_nome="${2:-}"; shift 2 ;;
         # Delegado ao doctor, que ja sabe resolver a heranca e a origem. Uma
         # implementacao de "qual perfil e este", nao duas.
         --current|-c) exec "$(dirname "${BASH_SOURCE[0]}")/doctor.sh" --current ;;
@@ -72,9 +79,14 @@ cd "$ws_root"
 
 echo "==> Raiz do workspace: $ws_root"
 
-manifest="$meta_dir/evtol.repos"
+manifest="$meta_dir/$manifesto_nome"
 if [[ ! -f "$manifest" ]]; then
     echo "ERRO: manifesto não encontrado em $manifest" >&2
+    if [[ "$manifesto_nome" == "voo.repos" ]]; then
+        echo "       O voo.repos não é versionado: ele é gerado no momento do" >&2
+        echo "       congelamento, na máquina que acabou de testar o workspace:" >&2
+        echo "           scripts/congelar.sh" >&2
+    fi
     exit 1
 fi
 

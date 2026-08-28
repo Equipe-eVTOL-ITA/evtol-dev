@@ -48,3 +48,17 @@ __pycache__/
 # clonar roda ./scripts/venv.sh e obtem exatamente o mesmo conjunto -- que e a
 # mesma logica do evtol.repos para o codigo.
 .venv/
+
+# Repositorios de competicoes antigas, guardados para consulta.
+#
+# Sao clones proprios (o referencia/cbr_2025 tem o seu .git apontando para
+# Equipe-eVTOL-ITA/cbr_2025). Um deles entrou no indice como gitlink -- modo
+# 160000 -- sem nenhum .gitmodules correspondente, e todo checkout de CI
+# terminava com
+#
+#     fatal: No url found for submodule path 'referencia/cbr_2025'
+#
+# Alem de contrariar a Golden Rule 2 (nunca usar submodulos). O COLCON_IGNORE
+# ao lado continua versionado: ele e que impede o colcon de compilar o que
+# esta aqui dentro.
+referencia/*/
